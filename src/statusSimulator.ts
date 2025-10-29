@@ -114,10 +114,6 @@ export class StatusSimulator {
           ? {
               ...req,
               status: nextStatus,
-              decidedDate:
-                nextStatus === "Afgerond"
-                  ? new Date().toISOString().split("T")[0]
-                  : req.decidedDate,
             }
           : req,
       );
