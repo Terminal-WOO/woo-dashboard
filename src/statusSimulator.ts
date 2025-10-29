@@ -14,6 +14,8 @@ const MAX_DOCUMENTS = 12;
 export class StatusSimulator {
   private intervalId: number | null = null;
   private isRunning = false;
+  private currentRequests: WOORequest[] = [];
+  private updateCallback: ((requests: WOORequest[]) => void) | null = null;
 
   start(
     requests: WOORequest[],
@@ -23,10 +25,14 @@ export class StatusSimulator {
     if (this.isRunning) return;
 
     this.isRunning = true;
+    this.currentRequests = requests;
+    this.updateCallback = onUpdate;
+
     this.intervalId = window.setInterval(() => {
-      const updatedRequests = this.updateRandomRequest(requests);
+      const updatedRequests = this.updateRandomRequest(this.currentRequests);
       if (updatedRequests) {
-        onUpdate(updatedRequests);
+        this.currentRequests = updatedRequests;
+        this.updateCallback!(updatedRequests);
       }
     }, intervalMs);
   }
@@ -36,6 +42,8 @@ export class StatusSimulator {
       clearInterval(this.intervalId);
       this.intervalId = null;
       this.isRunning = false;
+      this.currentRequests = [];
+      this.updateCallback = null;
     }
   }
 
