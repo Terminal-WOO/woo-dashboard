@@ -67,10 +67,10 @@ function App() {
       erlangSimulatorV2.stop();
       setIsSimulating(false);
     } else {
-      // Start simulation with 3 second intervals
+      // Start simulation with 2 second intervals for smoother progression
       await erlangSimulatorV2.start((updatedRequests) => {
         setRequests([...updatedRequests]);
-      }, 3000);
+      }, 2000);
       setIsSimulating(true);
     }
   };

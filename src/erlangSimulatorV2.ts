@@ -8,21 +8,19 @@ import { erlangSystem, Message } from "./erlangActorSystem";
 import { mockDatabaseService as databaseService } from "./mockDatabase";
 
 // Organization-specific status workflows
+// Workflow: 9 distinct statuses showing full document lifecycle
 const ORGANIZATIONS: Organization[] = [
   {
     id: "gemeente-utrecht",
     name: "Gemeente Utrecht",
     type: "gemeente",
     statusWorkflow: [
-      "Ontvangen",
-      "In behandeling",
-      "1e Concept",
-      "In behandeling",
-      "2e Concept",
-      "In behandeling",
-      "Definitief",
-      "In behandeling",
-      "Gepubliceerd",
+      "Ontvangen", // 1. Document komt binnen
+      "In behandeling", // 2. Eerste beoordeling
+      "1e Concept", // 3. Eerste concept klaar
+      "2e Concept", // 4. Verbeterde versie
+      "Definitief", // 5. Definitieve versie
+      "Gepubliceerd", // 6. Gepubliceerd! Dan weer terug naar Ontvangen
     ],
   },
   {
@@ -30,15 +28,12 @@ const ORGANIZATIONS: Organization[] = [
     name: "Provincie Flevoland",
     type: "provincie",
     statusWorkflow: [
-      "Ontvangen",
-      "In behandeling",
-      "1e Concept",
-      "In behandeling",
-      "2e Concept",
-      "In behandeling",
-      "Definitief",
-      "In behandeling",
-      "Gepubliceerd",
+      "Ontvangen", // 1. Document komt binnen
+      "In behandeling", // 2. Eerste beoordeling
+      "1e Concept", // 3. Eerste concept klaar
+      "2e Concept", // 4. Verbeterde versie
+      "Definitief", // 5. Definitieve versie
+      "Gepubliceerd", // 6. Gepubliceerd! Dan weer terug naar Ontvangen
     ],
   },
 ];
@@ -129,10 +124,27 @@ function createDocumentManagerV2Behavior() {
  */
 function updateRandomDocumentV2(requests: WOORequest[]): WOORequest[] | null {
   // Find documents not yet published
-  const updatableRequests = requests.filter((r) => r.status !== "Gepubliceerd");
+  let updatableRequests = requests.filter((r) => r.status !== "Gepubliceerd");
 
   if (updatableRequests.length === 0) {
-    console.log("[Simulator V2] All documents published, cycle complete");
+    // All documents published - reset a random one to restart cycle
+    console.log("[Simulator V2] All documents published, restarting cycle...");
+    const randomDoc = requests[Math.floor(Math.random() * requests.length)];
+    databaseService.update(randomDoc.id, "Ontvangen");
+
+    // Publish reset event
+    erlangSystem.getEventManager().notify({
+      type: "status_change",
+      data: {
+        documentId: randomDoc.id,
+        title: randomDoc.title,
+        oldStatus: "Gepubliceerd",
+        newStatus: "Ontvangen",
+        organization: randomDoc.organization,
+        timestamp: Date.now(),
+      },
+    });
+
     return databaseService.queryAll();
   }
 
