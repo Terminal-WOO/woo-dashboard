@@ -42,6 +42,19 @@ function App() {
       }
     };
 
+    console.log(
+      "%c🎉 WOO Dashboard v2.0 - SQLite Edition",
+      "background: #16a34a; color: white; padding: 8px; font-size: 16px; font-weight: bold;",
+    );
+    console.log(
+      "%cGemeente Utrecht & Provincie Flevoland",
+      "color: #107abe; font-size: 14px;",
+    );
+    console.log(
+      "%cErlang Actor System + SQLite Database",
+      "color: #9333ea; font-size: 12px;",
+    );
+
     initDatabase();
 
     return () => {
@@ -82,7 +95,22 @@ function App() {
         <div className="container">
           <div className="header-content">
             <div>
-              <h1>WOO Dashboard - Utrecht & Flevoland</h1>
+              <h1>
+                WOO Dashboard - Utrecht & Flevoland
+                <span
+                  style={{
+                    marginLeft: "12px",
+                    fontSize: "0.5em",
+                    padding: "4px 8px",
+                    backgroundColor: "#16a34a",
+                    color: "white",
+                    borderRadius: "4px",
+                    fontWeight: "normal",
+                  }}
+                >
+                  v2.0 SQLite
+                </span>
+              </h1>
               <p className="subtitle">
                 Wet Open Overheid - Erlang Actor System met SQLite Database
               </p>
