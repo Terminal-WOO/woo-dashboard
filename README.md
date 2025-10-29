@@ -1,6 +1,6 @@
-# WOO Dashboard
+# WOO Dashboard - Utrecht & Flevoland
 
-Een interactief dashboard voor het monitoren van Wet Open Overheid (WOO) verzoeken met real-time simulatie functionaliteit.
+Een interactief dashboard voor het monitoren van Wet Open Overheid (WOO) verzoeken van **Gemeente Utrecht** en **Provincie Flevoland** met SQLite database en Erlang-geïnspireerd Actor System.
 
 ## Live Demo
 
@@ -8,23 +8,58 @@ Het dashboard is live beschikbaar op: **https://terminal-woo.github.io/woo-dashb
 
 ## Overzicht
 
-WOO Dashboard is een modern React-based dashboard dat statistieken en status updates van WOO-verzoeken visualiseert. Het biedt een real-time simulatie van document lifecycle management met automatische status updates en event tracking.
+WOO Dashboard is een modern React-based dashboard dat statistieken en status updates van WOO-verzoeken visualiseert. Het systeem gebruikt een **SQLite database** voor data persistentie en een **Erlang/OTP-geïnspireerd Actor Model** voor robuuste event handling.
 
 ### Belangrijkste Functies
 
-- **Real-time Status Updates**: Automatische simulatie van document status wijzigingen
-- **Live Event Feed**: Real-time notificaties van alle document events
-- **Interactieve Statistieken**: Visuele grafieken en metrics
-- **Smart Event System**: Geoptimaliseerd event systeem met automatische cleanup
+- **SQLite Database**: Browser-based database met documenten van Utrecht en Flevoland
+- **Erlang Actor System**: Fault-tolerant event handling met supervisors en message passing
+- **Multi-stage Workflow**: 7 statussen: Ontvangen → In behandeling → 1e Concept → In behandeling → 2e Concept → In behandeling → Definitief → In behandeling → Gepubliceerd
+- **Real-time Simulatie**: Automatische doorloop van document statussen
+- **Live Event Feed**: Real-time notificaties van alle status wijzigingen
+- **Organisatie Filtering**: Gescheiden data voor gemeente en provincie
 - **Responsive Design**: Werkt op desktop, tablet en mobile
 
 ## Technologie Stack
 
 - **React 18** - UI framework
 - **TypeScript** - Type-safe development
+- **SQL.js** - SQLite database compiled to WebAssembly
 - **Recharts** - Data visualisatie
 - **Vite** - Build tool en development server
 - **CSS3** - Styling met custom properties
+
+## Database Schema
+
+Het systeem gebruikt een SQLite database met de volgende tabellen:
+
+### Organizations
+- `id`: Primary key
+- `name`: Gemeente Utrecht / Provincie Flevoland
+- `type`: gemeente / provincie
+- `status_workflow`: JSON array met status volgorde
+
+### WOO Requests
+- `id`: Document ID (bijv. WOO-UTR-2024-001)
+- `title`: Titel van het verzoek
+- `status`: Huidige status
+- `submitted_date`: Datum van indiening
+- `decided_date`: Datum van besluit (optioneel)
+- `organization`: Organisatie naam
+- `organization_type`: Type organisatie
+- `category`: Categorie (bijv. Ruimtelijke Ordening)
+- `subject`: Onderwerp omschrijving
+- `requester`: Indiener (optioneel)
+- `handler`: Behandelaar
+- `last_modified`: Laatste wijziging timestamp
+
+### Status History
+- `id`: Auto-increment primary key
+- `request_id`: Foreign key naar woo_requests
+- `old_status`: Vorige status
+- `new_status`: Nieuwe status
+- `changed_at`: Timestamp van wijziging
+- `changed_by`: Gebruiker (optioneel)
 
 ## Projectstructuur
 
@@ -38,9 +73,11 @@ woo-dashboard/
 │   ├── App.tsx                  # Hoofd applicatie component
 │   ├── App.css                  # Applicatie styling
 │   ├── types.ts                 # TypeScript type definities
-│   ├── data.ts                  # Mock data en data functies
+│   ├── data.ts                  # Data utility functies
 │   ├── erlangActorSystem.ts    # Erlang-inspired Actor Model systeem
-│   ├── erlangSimulator.ts      # Erlang-style document simulator
+│   ├── erlangSimulator.ts      # Erlang-style document simulator (V1)
+│   ├── erlangSimulatorV2.ts    # V2 met SQLite database integratie
+│   ├── databaseActor.ts        # SQLite database actor
 │   ├── eventSystem.ts          # Legacy event management
 │   ├── statusSimulator.ts      # Legacy status simulator
 │   ├── documentGenerator.ts    # Nieuwe document generator
@@ -122,6 +159,14 @@ Document lifecycle management met actors:
 - Registreert bij EventManager voor live events
 - Cleanup actor bij unmount (no memory leaks)
 
+**4. Database Actor (src/databaseActor.ts:1)**
+
+- Gen_server style voor database operaties
+- Initialize SQLite met schema en initial data
+- CRUD operations: insert, update, query
+- Status history tracking
+- Export/import functionaliteit
+
 #### Message Types
 
 Erlang-style message tuples (als TypeScript types):
@@ -151,13 +196,43 @@ Voor backwards compatibility blijven de oude systemen beschikbaar:
 - **eventSystem.ts**: Originele event systeem (deprecated)
 - **statusSimulator.ts**: Originele simulator (deprecated)
 
+### Document Workflow & Initial Data
+
+Het systeem bevat initiële data voor demonstratie doeleinden:
+
+#### Gemeente Utrecht (4 documenten)
+- WOO-UTR-2024-001: Nieuwbouwproject Merwedekanaal (1e Concept)
+- WOO-UTR-2024-002: Verkeersplan binnenstad (In behandeling)
+- WOO-UTR-2024-003: Subsidieverlening culturele instellingen (Definitief)
+- WOO-UTR-2024-004: Contracten afvalverwerking (Ontvangen)
+
+#### Provincie Flevoland (4 documenten)
+- WOO-FLE-2024-001: Stikstofrapportage landbouw (2e Concept)
+- WOO-FLE-2024-002: Windmolenpark Noordoostpolder (In behandeling)
+- WOO-FLE-2024-003: N23 reconstructie projectplan (Gepubliceerd)
+- WOO-FLE-2024-004: Subsidieregeling duurzame landbouw (1e Concept)
+
+#### Status Workflow
+
+Beide organisaties gebruiken dezelfde workflow met 7 hoofdstatussen:
+
+1. **Ontvangen** - Document is binnengekomen
+2. **In behandeling** - Eerste beoordeling
+3. **1e Concept** - Eerste versie concept besluit
+4. **In behandeling** - Verwerking feedback 1e concept
+5. **2e Concept** - Tweede versie concept besluit
+6. **In behandeling** - Verwerking feedback 2e concept
+7. **Definitief** - Definitieve versie klaar
+8. **In behandeling** - Voorbereiding publicatie
+9. **Gepubliceerd** - Openbaar gemaakt
+
 ### Document Generator
 
 De document generator (src/documentGenerator.ts:1) creëert realistische WOO documenten met:
 - Variabele titels en onderwerpen
-- Realistische organisatie namen
+- Utrecht en Flevoland als organisaties
 - Automatische datum generatie
-- Willekeurige initiële statussen
+- Correcte type definities (gemeente/provincie)
 
 ## Lokale Ontwikkeling
 

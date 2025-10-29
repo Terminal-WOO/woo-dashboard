@@ -15,44 +15,66 @@ import {
 import { StatsCard } from "./components/StatsCard";
 import { RequestsTable } from "./components/RequestsTable";
 import { ActivityFeed } from "./components/ActivityFeed";
-import {
-  mockWOORequests,
-  calculateStats,
-  getMonthlyData,
-  getStatusDistribution,
-} from "./data";
-import { erlangSimulator } from "./erlangSimulator";
+import { calculateStats, getMonthlyData, getStatusDistribution } from "./data";
+import { WOORequest } from "./types";
+import { erlangSimulatorV2 } from "./erlangSimulatorV2";
 import "./App.css";
 
 function App() {
-  const [requests, setRequests] = useState(mockWOORequests);
+  const [requests, setRequests] = useState<WOORequest[]>([]);
   const [isSimulating, setIsSimulating] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true);
   const stats = calculateStats(requests);
   const monthlyData = getMonthlyData();
   const statusDistribution = getStatusDistribution(stats);
 
+  // Initialize database on mount
   useEffect(() => {
+    const initDatabase = async () => {
+      try {
+        await erlangSimulatorV2.initialize();
+        const initialData = await erlangSimulatorV2.getStatistics();
+        console.log("[App] Database initialized:", initialData);
+        setIsInitializing(false);
+      } catch (error) {
+        console.error("[App] Failed to initialize database:", error);
+        setIsInitializing(false);
+      }
+    };
+
+    initDatabase();
+
     return () => {
-      erlangSimulator.stop();
+      erlangSimulatorV2.stop();
     };
   }, []);
 
-  const handleToggleSimulation = () => {
+  const handleToggleSimulation = async () => {
     if (isSimulating) {
-      erlangSimulator.stop();
+      erlangSimulatorV2.stop();
       setIsSimulating(false);
     } else {
-      // 1 event per seconde = 1000ms per event
-      erlangSimulator.start(
-        requests,
-        (updatedRequests) => {
-          setRequests([...updatedRequests]);
-        },
-        1000,
-      );
+      // Start simulation with 3 second intervals
+      await erlangSimulatorV2.start((updatedRequests) => {
+        setRequests([...updatedRequests]);
+      }, 3000);
       setIsSimulating(true);
     }
   };
+
+  if (isInitializing) {
+    return (
+      <div className="app">
+        <div className="loading-container">
+          <div className="loading-spinner"></div>
+          <p>Database wordt geïnitialiseerd...</p>
+          <p style={{ fontSize: "0.85rem", color: "#6b7280" }}>
+            Gemeente Utrecht & Provincie Flevoland data laden
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="app">
@@ -60,14 +82,15 @@ function App() {
         <div className="container">
           <div className="header-content">
             <div>
-              <h1>WOO Dashboard</h1>
+              <h1>WOO Dashboard - Utrecht & Flevoland</h1>
               <p className="subtitle">
-                Wet Open Overheid - Overzicht van verzoeken
+                Wet Open Overheid - Erlang Actor System met SQLite Database
               </p>
             </div>
             <button
               className={`simulate-button ${isSimulating ? "active" : ""}`}
               onClick={handleToggleSimulation}
+              disabled={isInitializing}
             >
               {isSimulating ? "⏸ Stop Simulatie" : "▶ Start Simulatie"}
             </button>

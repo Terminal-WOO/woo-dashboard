@@ -1,4 +1,14 @@
-export type WOOStatus = "Ontvangen" | "In behandeling" | "Afgerond";
+// Extended status system for government organizations
+export type WOOStatus =
+  | "Ontvangen"
+  | "In behandeling"
+  | "1e Concept"
+  | "2e Concept"
+  | "Definitief"
+  | "Gepubliceerd"
+  | "Afgerond";
+
+export type OrganizationType = "gemeente" | "provincie" | "ministerie";
 
 export interface WOORequest {
   id: string;
@@ -7,7 +17,12 @@ export interface WOORequest {
   submittedDate: string;
   decidedDate?: string;
   organization: string;
+  organizationType: OrganizationType;
   category: string;
+  subject: string;
+  requester?: string;
+  handler?: string;
+  lastModified: string;
 }
 
 export interface StatusEvent {
@@ -37,4 +52,11 @@ export interface StatusDistribution {
   name: string;
   value: number;
   color: string;
+}
+
+export interface Organization {
+  id: string;
+  name: string;
+  type: OrganizationType;
+  statusWorkflow: WOOStatus[];
 }

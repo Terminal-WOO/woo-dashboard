@@ -1,82 +1,29 @@
-import { WOORequest, WOOStats, MonthlyData, StatusDistribution } from "./types";
+import {
+  WOORequest,
+  WOOStats,
+  MonthlyData,
+  StatusDistribution,
+  WOOStatus,
+} from "./types";
 
-// Mock data voor WOO verzoeken
-export const mockWOORequests: WOORequest[] = [
-  {
-    id: "1",
-    title: "Verzoek om informatie over gemeentelijke uitgaven",
-    status: "Ontvangen",
-    submittedDate: "2024-01-15",
-    organization: "Gemeente Amsterdam",
-    category: "Financiën",
-  },
-  {
-    id: "2",
-    title: "Documenten over nieuwe wetgeving",
-    status: "In behandeling",
-    submittedDate: "2024-03-10",
-    organization: "Ministerie van Justitie",
-    category: "Wetgeving",
-  },
-  {
-    id: "3",
-    title: "Informatie over bouwvergunningen",
-    status: "In behandeling",
-    submittedDate: "2024-02-05",
-    organization: "Gemeente Rotterdam",
-    category: "Ruimtelijke Ordening",
-  },
-  {
-    id: "4",
-    title: "Verzoek om milieu-impact rapportage",
-    status: "Ontvangen",
-    submittedDate: "2024-01-20",
-    organization: "Ministerie van Infrastructuur",
-    category: "Milieu",
-  },
-  {
-    id: "5",
-    title: "Adviesrapporten over gezondheidszorg",
-    status: "In behandeling",
-    submittedDate: "2024-03-01",
-    organization: "Ministerie van VWS",
-    category: "Gezondheidszorg",
-  },
-  {
-    id: "6",
-    title: "Informatie over onderwijsbeleid",
-    status: "In behandeling",
-    submittedDate: "2024-03-20",
-    organization: "Ministerie van Onderwijs",
-    category: "Onderwijs",
-  },
-  {
-    id: "7",
-    title: "Verkeerscijfers en verkeersplannen",
-    status: "Ontvangen",
-    submittedDate: "2024-02-10",
-    organization: "Gemeente Utrecht",
-    category: "Verkeer",
-  },
-  {
-    id: "8",
-    title: "Informatie over sociale voorzieningen",
-    status: "In behandeling",
-    submittedDate: "2024-01-05",
-    organization: "Gemeente Den Haag",
-    category: "Sociale Zaken",
-  },
-];
+// Mock data - will be replaced by database
+export const mockWOORequests: WOORequest[] = [];
 
-// Bereken statistieken
+// Calculate statistics with new status types
 export const calculateStats = (requests: WOORequest[]): WOOStats => {
   const received = requests.filter((r) => r.status === "Ontvangen").length;
-  const inProgress = requests.filter(
-    (r) => r.status === "In behandeling",
-  ).length;
-  const completed = requests.filter((r) => r.status === "Afgerond").length;
 
-  // Bereken gemiddelde behandeltijd
+  const inProgress = requests.filter(
+    (r) =>
+      r.status === "In behandeling" ||
+      r.status === "1e Concept" ||
+      r.status === "2e Concept" ||
+      r.status === "Definitief",
+  ).length;
+
+  const completed = requests.filter((r) => r.status === "Gepubliceerd").length;
+
+  // Calculate average handling time
   const completedRequests = requests.filter((r) => r.decidedDate);
   const totalDays = completedRequests.reduce((sum, req) => {
     const submitted = new Date(req.submittedDate);
@@ -101,25 +48,88 @@ export const calculateStats = (requests: WOORequest[]): WOOStats => {
   };
 };
 
-// Data per maand
+// Generate monthly data
 export const getMonthlyData = (): MonthlyData[] => {
   return [
-    { month: "Jan", requests: 3 },
-    { month: "Feb", requests: 2 },
-    { month: "Mrt", requests: 3 },
-    { month: "Apr", requests: 5 },
-    { month: "Mei", requests: 4 },
-    { month: "Jun", requests: 6 },
+    { month: "Jan", requests: 12 },
+    { month: "Feb", requests: 15 },
+    { month: "Mrt", requests: 18 },
+    { month: "Apr", requests: 14 },
+    { month: "Mei", requests: 16 },
+    { month: "Jun", requests: 19 },
+    { month: "Jul", requests: 17 },
+    { month: "Aug", requests: 13 },
+    { month: "Sep", requests: 20 },
+    { month: "Okt", requests: 22 },
   ];
 };
 
-// Status verdeling voor pie chart
+// Get status distribution with new statuses
 export const getStatusDistribution = (
   stats: WOOStats,
 ): StatusDistribution[] => {
   return [
     { name: "Ontvangen", value: stats.received, color: "#d97706" },
-    { name: "In behandeling", value: stats.inProgress, color: "#107abe" },
-    { name: "Afgerond", value: stats.completed, color: "#2e7d32" },
+    { name: "In Behandeling", value: stats.inProgress, color: "#107abe" },
+    { name: "Gepubliceerd", value: stats.completed, color: "#2e7d32" },
   ];
+};
+
+// Get detailed status distribution including all workflow steps
+export const getDetailedStatusDistribution = (
+  requests: WOORequest[],
+): StatusDistribution[] => {
+  const statusCounts: Record<WOOStatus, number> = {
+    Ontvangen: 0,
+    "In behandeling": 0,
+    "1e Concept": 0,
+    "2e Concept": 0,
+    Definitief: 0,
+    Gepubliceerd: 0,
+    Afgerond: 0,
+  };
+
+  requests.forEach((req) => {
+    statusCounts[req.status]++;
+  });
+
+  const statusColors: Record<WOOStatus, string> = {
+    Ontvangen: "#d97706",
+    "In behandeling": "#107abe",
+    "1e Concept": "#9333ea",
+    "2e Concept": "#db2777",
+    Definitief: "#0891b2",
+    Gepubliceerd: "#2e7d32",
+    Afgerond: "#16a34a",
+  };
+
+  return Object.entries(statusCounts)
+    .filter(([_, count]) => count > 0)
+    .map(([status, count]) => ({
+      name: status,
+      value: count,
+      color: statusColors[status as WOOStatus],
+    }));
+};
+
+// Get organization statistics
+export const getOrganizationStats = (
+  requests: WOORequest[],
+): { name: string; count: number; color: string }[] => {
+  const orgCounts: Record<string, number> = {};
+
+  requests.forEach((req) => {
+    orgCounts[req.organization] = (orgCounts[req.organization] || 0) + 1;
+  });
+
+  const orgColors: Record<string, string> = {
+    "Gemeente Utrecht": "#E30613",
+    "Provincie Flevoland": "#00A0E1",
+  };
+
+  return Object.entries(orgCounts).map(([org, count]) => ({
+    name: org,
+    count,
+    color: orgColors[org] || "#6b7280",
+  }));
 };

@@ -77,6 +77,14 @@ export const ActivityFeed = () => {
         return "#d97706";
       case "In behandeling":
         return "#107abe";
+      case "1e Concept":
+        return "#9333ea";
+      case "2e Concept":
+        return "#db2777";
+      case "Definitief":
+        return "#0891b2";
+      case "Gepubliceerd":
+        return "#16a34a";
       case "Afgerond":
         return "#2e7d32";
       default:
@@ -90,6 +98,14 @@ export const ActivityFeed = () => {
         return "📥";
       case "In behandeling":
         return "⏳";
+      case "1e Concept":
+        return "📝";
+      case "2e Concept":
+        return "📋";
+      case "Definitief":
+        return "✔️";
+      case "Gepubliceerd":
+        return "📢";
       case "Afgerond":
         return "✅";
       default:

@@ -1,4 +1,4 @@
-import { WOORequest } from "./types";
+import { WOORequest, OrganizationType } from "./types";
 
 const subjects = [
   "gemeentelijke uitgaven",
@@ -46,21 +46,10 @@ const prefixes = [
   "Subsidieaanvragen voor",
 ];
 
-const organizations = [
-  "Gemeente Amsterdam",
-  "Gemeente Rotterdam",
-  "Gemeente Den Haag",
-  "Gemeente Utrecht",
-  "Ministerie van Justitie",
-  "Ministerie van Infrastructuur",
-  "Ministerie van VWS",
-  "Ministerie van Onderwijs",
-  "Ministerie van Financiën",
-  "Provincie Noord-Holland",
-  "Waterschap Rijnland",
-  "Gemeente Eindhoven",
-  "Gemeente Groningen",
-  "Gemeente Tilburg",
+// Updated for Utrecht and Flevoland
+const organizations: Array<{ name: string; type: OrganizationType }> = [
+  { name: "Gemeente Utrecht", type: "gemeente" },
+  { name: "Provincie Flevoland", type: "provincie" },
 ];
 
 const categories = [
@@ -76,6 +65,9 @@ const categories = [
   "Economie",
   "Duurzaamheid",
   "Infrastructuur",
+  "Landbouw",
+  "Natuur",
+  "Energie",
 ];
 
 let documentCounter = 1000;
@@ -83,7 +75,7 @@ let documentCounter = 1000;
 export function generateNewDocument(): WOORequest {
   documentCounter++;
 
-  // Genereer unieke titel door prefix en subject te combineren
+  // Generate unique title
   const randomPrefix = prefixes[Math.floor(Math.random() * prefixes.length)];
   const randomSubject = subjects[Math.floor(Math.random() * subjects.length)];
   const uniqueTitle = `${randomPrefix} ${randomSubject}`;
@@ -93,17 +85,20 @@ export function generateNewDocument(): WOORequest {
   const randomCategory =
     categories[Math.floor(Math.random() * categories.length)];
 
-  // Datum tussen nu en 30 dagen geleden
+  // Date between now and 30 days ago
   const daysAgo = Math.floor(Math.random() * 30);
   const submittedDate = new Date();
   submittedDate.setDate(submittedDate.getDate() - daysAgo);
 
   return {
-    id: `doc-${documentCounter}`,
+    id: `WOO-GEN-${documentCounter}`,
     title: uniqueTitle,
     status: "Ontvangen",
     submittedDate: submittedDate.toISOString().split("T")[0],
-    organization: randomOrg,
+    organization: randomOrg.name,
+    organizationType: randomOrg.type,
     category: randomCategory,
+    subject: `${randomPrefix} ${randomSubject} - gegenereerd document`,
+    lastModified: new Date().toISOString(),
   };
 }
