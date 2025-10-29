@@ -34,18 +34,20 @@ woo-dashboard/
 │   ├── components/
 │   │   ├── StatsCard.tsx        # Statistiek cards
 │   │   ├── RequestsTable.tsx    # Documenten tabel
-│   │   └── ActivityFeed.tsx     # Live event feed
+│   │   └── ActivityFeed.tsx     # Live event feed (Erlang actor)
 │   ├── App.tsx                  # Hoofd applicatie component
 │   ├── App.css                  # Applicatie styling
 │   ├── types.ts                 # TypeScript type definities
 │   ├── data.ts                  # Mock data en data functies
-│   ├── eventSystem.ts           # Smart event management systeem
-│   ├── statusSimulator.ts       # Document status simulator
-│   ├── documentGenerator.ts     # Nieuwe document generator
-│   └── main.tsx                 # App entry point
+│   ├── erlangActorSystem.ts    # Erlang-inspired Actor Model systeem
+│   ├── erlangSimulator.ts      # Erlang-style document simulator
+│   ├── eventSystem.ts          # Legacy event management
+│   ├── statusSimulator.ts      # Legacy status simulator
+│   ├── documentGenerator.ts    # Nieuwe document generator
+│   └── main.tsx                # App entry point
 ├── .github/
 │   └── workflows/
-│       └── deploy.yml           # GitHub Actions deployment
+│       └── deploy.yml          # GitHub Actions deployment
 ├── index.html
 ├── package.json
 ├── tsconfig.json
@@ -55,21 +57,99 @@ woo-dashboard/
 
 ## Architectuur
 
-### Event System
+### Erlang-Inspired Actor System
 
-Het dashboard gebruikt een slim event systeem (src/eventSystem.ts:1) dat:
-- Events beheert met automatische cleanup na 30 seconden
-- Maximaal 50 events in memory houdt
-- Event listeners ondersteunt voor real-time updates
-- Memory leaks voorkomt door oude events te verwijderen
+Dit project implementeert een **Erlang/OTP-geïnspireerd Actor Model** voor robuuste event handling en concurrency. Erlang is wereldberoemd voor zijn betrouwbaarheid in telecom systemen en distributie systemen.
 
-### Status Simulator
+#### Waarom Erlang patronen?
 
-De status simulator (src/statusSimulator.ts:1) zorgt voor:
-- Automatische status progressie: Ontvangen → In behandeling → Afgerond
-- Dynamisch toevoegen van nieuwe documenten
-- Event emissie bij elke status wijziging
-- Configureerbare update intervallen (standaard 5 seconden)
+Erlang's filosofie ("let it crash", actor model, supervision trees) biedt:
+- **Isolatie**: Elke actor heeft zijn eigen state, geen gedeeld geheugen
+- **Message Passing**: Actors communiceren via immutable messages
+- **Fault Tolerance**: Supervisors kunnen gefaalde actors herstarten
+- **Concurrency**: Actors verwerken messages asynchroon maar sequentieel
+
+#### Core Components
+
+**1. Actor System (src/erlangActorSystem.ts:1)**
+
+Implementeert Erlang concepten in TypeScript:
+
+- **Actor**: Equivalent van Erlang process met PID, mailbox en message handler
+  - Elke actor heeft unieke PID (bijv. `<0.42.0>`)
+  - Mailbox voor message queuing
+  - Sequential message processing (geen race conditions)
+  
+- **Supervisor**: OTP Supervisor pattern voor fault tolerance
+  - Monitort child actors
+  - Restart strategieën: `permanent`, `temporary`, `transient`
+  - Strategy types: `one_for_one`, `one_for_all`, `rest_for_one`
+  
+- **EventManager**: Gen_event behavior voor pub/sub
+  - Registreer handlers (actors) voor event notifications
+  - Broadcast events naar alle subscribers
+  - Event history buffer (laatste 50 events)
+  
+- **ProcessRegistry**: Named process registration
+  - Map namen naar actor PIDs
+  - Location transparency (actors vinden op naam)
+  
+- **Application**: OTP Application controller
+  - Lifecycle management van het hele actor systeem
+  - Spawn actors met `spawn()` en `spawnRegister()`
+  - Graceful shutdown van alle actors
+
+**2. Erlang Simulator (src/erlangSimulator.ts:1)**
+
+Document lifecycle management met actors:
+
+- **Ticker Actor**: Timer proces dat periodieke tick messages stuurt
+  - Gebruikt native `setInterval` maar geïsoleerd in actor
+  - Kan gestopt en herstart worden via messages
+  
+- **Document Manager Actor**: GenServer-style state management
+  - Ontvangt tick messages en update document state
+  - Immutable state updates (pure functional style)
+  - Callback naar React voor UI updates
+  
+- **Event Publisher Actor**: Gen_event voor event distribution
+  - Subscribe/unsubscribe mechanisme
+  - Broadcast status changes naar subscribers
+
+**3. Activity Feed met Actors (src/components/ActivityFeed.tsx:1)**
+
+- Spawnt eigen subscriber actor bij mount
+- Registreert bij EventManager voor live events
+- Cleanup actor bij unmount (no memory leaks)
+
+#### Message Types
+
+Erlang-style message tuples (als TypeScript types):
+
+```typescript
+type Message = 
+  | { type: 'status_change', data: StatusChangeData }
+  | { type: 'new_document', data: DocumentData }
+  | { type: 'tick', data: { timestamp: number } }
+  | { type: 'subscribe', data: { callback: Function } }
+  | { type: 'shutdown' }
+  | { type: 'restart' }
+```
+
+#### Voordelen van deze Architectuur
+
+1. **Testbaarheid**: Actors zijn geïsoleerd en testbaar
+2. **Debugbaarheid**: Message flow is traceable
+3. **Schaalbaarheid**: Easy toe te voegen nieuwe actors
+4. **Betrouwbaarheid**: Supervisors vangen crashes op
+5. **Clean Code**: Separation of concerns via message passing
+
+### Legacy Components
+
+Voor backwards compatibility blijven de oude systemen beschikbaar:
+
+- **eventSystem.ts**: Originele event systeem (deprecated)
+- **statusSimulator.ts**: Originele simulator (deprecated)
 
 ### Document Generator
 

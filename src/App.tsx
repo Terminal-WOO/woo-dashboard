@@ -21,7 +21,7 @@ import {
   getMonthlyData,
   getStatusDistribution,
 } from "./data";
-import { statusSimulator } from "./statusSimulator";
+import { erlangSimulator } from "./erlangSimulator";
 import "./App.css";
 
 function App() {
@@ -33,17 +33,17 @@ function App() {
 
   useEffect(() => {
     return () => {
-      statusSimulator.stop();
+      erlangSimulator.stop();
     };
   }, []);
 
   const handleToggleSimulation = () => {
     if (isSimulating) {
-      statusSimulator.stop();
+      erlangSimulator.stop();
       setIsSimulating(false);
     } else {
       // 1 event per seconde = 1000ms per event
-      statusSimulator.start(
+      erlangSimulator.start(
         requests,
         (updatedRequests) => {
           setRequests([...updatedRequests]);

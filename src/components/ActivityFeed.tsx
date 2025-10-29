@@ -1,21 +1,75 @@
 import { useState, useEffect } from "react";
-import { StatusEvent, WOOStatus } from "../types";
-import { eventSystem } from "../eventSystem";
+import { WOOStatus } from "../types";
+import { erlangSystem, Message } from "../erlangActorSystem";
+
+interface ActivityEvent {
+  id: string;
+  timestamp: Date;
+  requestTitle: string;
+  organization: string;
+  previousStatus: WOOStatus | null;
+  newStatus: WOOStatus;
+}
 
 export const ActivityFeed = () => {
-  const [events, setEvents] = useState<StatusEvent[]>([]);
+  const [events, setEvents] = useState<ActivityEvent[]>([]);
 
   useEffect(() => {
-    // Laad initiële events
-    setEvents(eventSystem.getRecentEvents(10));
+    // Load initial events from Erlang event manager history
+    const history = erlangSystem.getEventManager().getHistory();
+    const initialEvents = history
+      .filter(
+        (msg) => msg.type === "status_change" || msg.type === "new_document",
+      )
+      .slice(-10)
+      .reverse()
+      .map(convertMessageToEvent);
+    setEvents(initialEvents);
 
-    // Subscribe to nieuwe events
-    const unsubscribe = eventSystem.subscribe((event) => {
-      setEvents((prevEvents) => [event, ...prevEvents].slice(0, 10));
+    // Create subscriber actor for live events
+    const subscriber = erlangSystem.spawn((message: Message, state: any) => {
+      if (message.type === "status_change") {
+        const event = convertMessageToEvent(message);
+        setEvents((prevEvents) => [event, ...prevEvents].slice(0, 10));
+      } else if (message.type === "new_document") {
+        const event = convertMessageToEvent(message);
+        setEvents((prevEvents) => [event, ...prevEvents].slice(0, 10));
+      }
+      return state;
     });
 
-    return unsubscribe;
+    // Register as event handler
+    erlangSystem.getEventManager().addHandler(subscriber);
+
+    return () => {
+      // Cleanup: remove handler on unmount
+      erlangSystem.getEventManager().removeHandler(subscriber);
+      subscriber.send({ type: "shutdown" });
+    };
   }, []);
+
+  const convertMessageToEvent = (message: Message): ActivityEvent => {
+    if (message.type === "status_change") {
+      return {
+        id: `${message.data.documentId}-${message.data.timestamp}`,
+        timestamp: new Date(message.data.timestamp),
+        requestTitle: message.data.title,
+        organization: message.data.organization,
+        previousStatus: message.data.oldStatus as WOOStatus,
+        newStatus: message.data.newStatus as WOOStatus,
+      };
+    } else if (message.type === "new_document") {
+      return {
+        id: `${message.data.id}-${message.data.timestamp}`,
+        timestamp: new Date(message.data.timestamp),
+        requestTitle: message.data.title,
+        organization: message.data.organization,
+        previousStatus: null,
+        newStatus: message.data.status as WOOStatus,
+      };
+    }
+    throw new Error("Invalid message type");
+  };
 
   const getStatusColor = (status: WOOStatus): string => {
     switch (status) {
@@ -65,9 +119,12 @@ export const ActivityFeed = () => {
   if (events.length === 0) {
     return (
       <div className="activity-feed">
-        <h2>Recente Activiteit</h2>
+        <h2>Recente Activiteit (Erlang Actor System)</h2>
         <div className="no-events">
           <p>Geen recente activiteit</p>
+          <p style={{ fontSize: "0.8em", color: "#6b7280", marginTop: "8px" }}>
+            💡 Start de simulatie om events te zien
+          </p>
         </div>
       </div>
     );
@@ -75,7 +132,7 @@ export const ActivityFeed = () => {
 
   return (
     <div className="activity-feed">
-      <h2>Recente Activiteit</h2>
+      <h2>Recente Activiteit (Erlang Actor System)</h2>
       <div className="events-list">
         {events.map((event) => (
           <div key={event.id} className="event-item">
@@ -116,7 +173,7 @@ export const ActivityFeed = () => {
                   <>
                     <span className="event-separator">•</span>
                     <span style={{ color: getStatusColor(event.newStatus) }}>
-                      {event.newStatus}
+                      Nieuw: {event.newStatus}
                     </span>
                   </>
                 )}
