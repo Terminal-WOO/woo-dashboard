@@ -5,7 +5,7 @@
 
 import { WOORequest, Organization } from "./types";
 import { erlangSystem, Message } from "./erlangActorSystem";
-import { databaseService } from "./databaseActor";
+import { mockDatabaseService as databaseService } from "./mockDatabase";
 
 // Organization-specific status workflows
 const ORGANIZATIONS: Organization[] = [
