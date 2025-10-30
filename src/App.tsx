@@ -15,7 +15,12 @@ import {
 import { StatsCard } from "./components/StatsCard";
 import { RequestsTable } from "./components/RequestsTable";
 import { ActivityFeed } from "./components/ActivityFeed";
-import { calculateStats, getMonthlyData, getStatusDistribution } from "./data";
+import { BackendSwitcher } from "./components/BackendSwitcher";
+import {
+  calculateStats,
+  getMonthlyData,
+  getDetailedStatusDistribution,
+} from "./data";
 import { WOORequest } from "./types";
 import { erlangSimulatorV2 } from "./erlangSimulatorV2";
 import "./App.css";
@@ -26,7 +31,7 @@ function App() {
   const [isInitializing, setIsInitializing] = useState(true);
   const stats = calculateStats(requests);
   const monthlyData = getMonthlyData();
-  const statusDistribution = getStatusDistribution(stats);
+  const statusDistribution = getDetailedStatusDistribution(requests);
 
   // Initialize database on mount
   useEffect(() => {
@@ -108,20 +113,23 @@ function App() {
                     fontWeight: "normal",
                   }}
                 >
-                  v2.0 SQLite
+                  v2.0 Multi-Backend
                 </span>
               </h1>
               <p className="subtitle">
-                Wet Open Overheid - Erlang Actor System met SQLite Database
+                Wet Open Overheid - Erlang Actor System (Mock & Real Backend)
               </p>
             </div>
-            <button
-              className={`simulate-button ${isSimulating ? "active" : ""}`}
-              onClick={handleToggleSimulation}
-              disabled={isInitializing}
-            >
-              {isSimulating ? "⏸ Stop Simulatie" : "▶ Start Simulatie"}
-            </button>
+            <div className="header-actions">
+              <BackendSwitcher />
+              <button
+                className={`simulate-button ${isSimulating ? "active" : ""}`}
+                onClick={handleToggleSimulation}
+                disabled={isInitializing}
+              >
+                {isSimulating ? "⏸ Stop Simulatie" : "▶ Start Simulatie"}
+              </button>
+            </div>
           </div>
         </div>
       </header>

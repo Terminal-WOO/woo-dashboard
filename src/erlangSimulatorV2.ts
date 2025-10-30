@@ -172,20 +172,23 @@ function updateRandomDocumentV2(requests: WOORequest[]): WOORequest[] | null {
   // Get next status
   const nextStatus = org.statusWorkflow[currentIndex + 1];
 
+  // IMPORTANT: Save old status BEFORE updating the database
+  const oldStatus = requestToUpdate.status;
+
   console.log(
-    `[Simulator V2] ${requestToUpdate.organization} - ${requestToUpdate.id}: ${requestToUpdate.status} → ${nextStatus}`,
+    `[Simulator V2] ${requestToUpdate.organization} - ${requestToUpdate.id}: ${oldStatus} → ${nextStatus}`,
   );
 
   // Update in database
   databaseService.update(requestToUpdate.id, nextStatus);
 
-  // Publish event
+  // Publish event with the SAVED old status
   erlangSystem.getEventManager().notify({
     type: "status_change",
     data: {
       documentId: requestToUpdate.id,
       title: requestToUpdate.title,
-      oldStatus: requestToUpdate.status,
+      oldStatus: oldStatus,
       newStatus: nextStatus,
       organization: requestToUpdate.organization,
       timestamp: Date.now(),

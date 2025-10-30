@@ -1,0 +1,12 @@
+{application,woo_backend,
+             [{description,"WOO Dashboard Erlang Backend - OTP Application"},
+              {vsn,"1.0.0"},
+              {registered,[woo_sup,woo_document_manager,woo_event_manager]},
+              {mod,{woo_backend_app,[]}},
+              {applications,[kernel,stdlib,sasl,cowboy,jsx]},
+              {env,[{http_port,8080},{max_documents,1000}]},
+              {modules,[woo_backend_app,woo_document_manager,
+                        woo_event_manager,woo_http_handler,
+                        woo_simulation_server,woo_sup]},
+              {licenses,["MIT"]},
+              {links,[]}]}.

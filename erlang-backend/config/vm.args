@@ -1,0 +1,21 @@
+## VM Args for WOO Backend
+
+## Name of the node
+-name woo_backend@127.0.0.1
+
+## Cookie for distributed Erlang
+-setcookie woo_backend_cookie
+
+## Heartbeat management; auto-restarts VM if it dies or becomes unresponsive
+## (Disabled by default..use with caution!)
+##-heart
+
+## Enable kernel poll and async threads
++K true
++A 30
+
+## Increase number of concurrent ports/sockets
+-env ERL_MAX_PORTS 4096
+
+## Tweak GC to run more often
+##-env ERL_FULLSWEEP_AFTER 10
