@@ -118,7 +118,7 @@ function App() {
                     fontWeight: "normal",
                   }}
                 >
-                  v2.0 Multi-Backend
+                  v2.2 Triple-Backend
                 </span>
               </h1>
               <p className="subtitle">

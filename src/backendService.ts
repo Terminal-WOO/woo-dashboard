@@ -10,6 +10,7 @@
 
 import { mockDatabaseService } from "./mockDatabase";
 import { erlangBackendService } from "./erlangBackendService";
+import { postgresBackendService } from "./postgresBackendService";
 import { WOORequest, WOOStats, WOOStatus } from "./types";
 
 // Adapter for mockDatabaseService to match BackendService interface
@@ -63,7 +64,7 @@ class MockBackendAdapter implements BackendService {
 
 const mockBackendAdapter = new MockBackendAdapter();
 
-export type BackendType = "mock" | "erlang";
+export type BackendType = "mock" | "erlang" | "postgres";
 
 export interface BackendService {
   getAll(): Promise<WOORequest[]>;
@@ -131,12 +132,26 @@ class BackendServiceManager {
   }
 
   /**
+   * Check if PostgreSQL backend is available
+   */
+  async checkPostgresBackendAvailable(): Promise<boolean> {
+    try {
+      return await postgresBackendService.checkHealth();
+    } catch (error) {
+      console.warn("[BackendService] PostgreSQL backend not available:", error);
+      return false;
+    }
+  }
+
+  /**
    * Get backend implementation based on type
    */
   private getBackendImplementation(type: BackendType): BackendService {
     switch (type) {
       case "erlang":
         return erlangBackendService;
+      case "postgres":
+        return postgresBackendService;
       case "mock":
       default:
         return mockBackendAdapter;
@@ -174,11 +189,8 @@ class BackendServiceManager {
    * Start simulation (if supported by backend)
    */
   async startSimulation(): Promise<void> {
-    if (
-      this.currentBackend === "erlang" &&
-      erlangBackendService.startSimulation
-    ) {
-      return erlangBackendService.startSimulation();
+    if (this.backend.startSimulation) {
+      return this.backend.startSimulation();
     }
     console.warn(
       "[BackendService] Simulation not supported by current backend",
@@ -189,11 +201,8 @@ class BackendServiceManager {
    * Stop simulation (if supported by backend)
    */
   async stopSimulation(): Promise<void> {
-    if (
-      this.currentBackend === "erlang" &&
-      erlangBackendService.stopSimulation
-    ) {
-      return erlangBackendService.stopSimulation();
+    if (this.backend.stopSimulation) {
+      return this.backend.stopSimulation();
     }
     console.warn(
       "[BackendService] Simulation not supported by current backend",

@@ -1,7 +1,7 @@
 /**
  * Backend Switcher Component
  *
- * Allows users to toggle between Mock and Erlang backend implementations
+ * Allows users to toggle between Mock, Erlang, and PostgreSQL backend implementations
  */
 
 import { useState, useEffect } from "react";
@@ -13,19 +13,26 @@ interface BackendSwitcherProps {
 
 export const BackendSwitcher = ({ onBackendChange }: BackendSwitcherProps) => {
   const [currentBackend, setCurrentBackend] = useState<BackendType>(
-    backendService.getBackendType()
+    backendService.getBackendType(),
   );
   const [erlangAvailable, setErlangAvailable] = useState<boolean | null>(null);
+  const [postgresAvailable, setPostgresAvailable] = useState<boolean | null>(
+    null,
+  );
   const [isChecking, setIsChecking] = useState(false);
 
   useEffect(() => {
-    checkErlangBackend();
+    checkBackends();
   }, []);
 
-  const checkErlangBackend = async () => {
+  const checkBackends = async () => {
     setIsChecking(true);
-    const available = await backendService.checkErlangBackendAvailable();
-    setErlangAvailable(available);
+    const [erlang, postgres] = await Promise.all([
+      backendService.checkErlangBackendAvailable(),
+      backendService.checkPostgresBackendAvailable(),
+    ]);
+    setErlangAvailable(erlang);
+    setPostgresAvailable(postgres);
     setIsChecking(false);
   };
 
@@ -33,15 +40,23 @@ export const BackendSwitcher = ({ onBackendChange }: BackendSwitcherProps) => {
     if (type === "erlang" && !erlangAvailable) {
       alert(
         "Erlang backend is niet beschikbaar!\n\n" +
-        "Start de backend met:\n" +
-        "cd erlang-backend && rebar3 shell"
+          "Start de backend met:\n" +
+          "cd erlang-backend && rebar3 shell",
+      );
+      return;
+    }
+
+    if (type === "postgres" && !postgresAvailable) {
+      alert(
+        "PostgreSQL backend is niet beschikbaar!\n\n" +
+          "Start de backend met:\n" +
+          "cd postgres-backend && npm run dev",
       );
       return;
     }
 
     backendService.switchBackend(type);
     setCurrentBackend(type);
-
     if (onBackendChange) {
       onBackendChange(type);
     }
@@ -50,16 +65,16 @@ export const BackendSwitcher = ({ onBackendChange }: BackendSwitcherProps) => {
     window.location.reload();
   };
 
-  const getStatusColor = () => {
+  const getStatusColor = (available: boolean | null) => {
     if (isChecking) return "#9ca3af";
-    if (erlangAvailable === null) return "#9ca3af";
-    return erlangAvailable ? "#16a34a" : "#dc2626";
+    if (available === null) return "#9ca3af";
+    return available ? "#16a34a" : "#dc2626";
   };
 
-  const getStatusText = () => {
+  const getStatusText = (available: boolean | null) => {
     if (isChecking) return "Checking...";
-    if (erlangAvailable === null) return "Unknown";
-    return erlangAvailable ? "Available" : "Offline";
+    if (available === null) return "Unknown";
+    return available ? "Available" : "Offline";
   };
 
   return (
@@ -82,16 +97,29 @@ export const BackendSwitcher = ({ onBackendChange }: BackendSwitcherProps) => {
           Erlang
           <span
             className="backend-status-indicator"
-            style={{ backgroundColor: getStatusColor() }}
-            title={`Erlang Backend: ${getStatusText()}`}
+            style={{ backgroundColor: getStatusColor(erlangAvailable) }}
+            title={`Erlang Backend: ${getStatusText(erlangAvailable)}`}
+          />
+        </button>
+        <button
+          className={`backend-button ${currentBackend === "postgres" ? "active" : ""}`}
+          onClick={() => handleSwitch("postgres")}
+          disabled={!postgresAvailable && currentBackend !== "postgres"}
+        >
+          <span className="backend-icon">🐘</span>
+          PostgreSQL
+          <span
+            className="backend-status-indicator"
+            style={{ backgroundColor: getStatusColor(postgresAvailable) }}
+            title={`PostgreSQL Backend: ${getStatusText(postgresAvailable)}`}
           />
         </button>
       </div>
       <button
         className="backend-check-button"
-        onClick={checkErlangBackend}
+        onClick={checkBackends}
         disabled={isChecking}
-        title="Check Erlang backend availability"
+        title="Check backend availability"
       >
         🔄
       </button>

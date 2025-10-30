@@ -1,6 +1,6 @@
 # WOO Dashboard - Utrecht & Flevoland
 
-Een interactief dashboard voor het monitoren van Wet Open Overheid (WOO) verzoeken van **Gemeente Utrecht** en **Provincie Flevoland** met keuze tussen mock database en echte Erlang/OTP backend.
+Een interactief dashboard voor het monitoren van Wet Open Overheid (WOO) verzoeken van **Gemeente Utrecht** en **Provincie Flevoland** met keuze tussen mock database, Erlang/OTP backend en PostgreSQL backend met moderne database features.
 
 ## Live Demo
 
@@ -10,14 +10,15 @@ Het dashboard is live beschikbaar op: **https://terminal-woo.github.io/woo-dashb
 
 ## Overzicht
 
-WOO Dashboard is een modern React-based dashboard dat statistieken en status updates van WOO-verzoeken visualiseert. Het systeem biedt **twee backend opties**:
+WOO Dashboard is een modern React-based dashboard dat statistieken en status updates van WOO-verzoeken visualiseert. Het systeem biedt **drie backend opties**:
 
 1. **Mock Backend**: Pure JavaScript in-memory database (TypeScript)
 2. **Erlang Backend**: Echte Erlang/OTP applicatie met gen_server, supervisors en REST API
+3. **PostgreSQL Backend**: Modern database systeem met LISTEN/NOTIFY, JSONB, full-text search en actor model
 
 ### Belangrijkste Functies
 
-- **🔄 Dual Backend Architecture**: Switch tussen mock en Erlang backend via UI
+- **🔄 Triple Backend Architecture**: Switch tussen mock, Erlang en PostgreSQL backend via UI
 - **⚡ Erlang/OTP Backend**: Volledige OTP applicatie met gen_server, gen_event, supervisor tree
 - **💾 Mock Database**: Pure JavaScript in-memory database met 24 realistische documenten
 - **🎭 Erlang Actor System**: Fault-tolerant event handling met supervisors en message passing (beide backends)
@@ -55,6 +56,16 @@ WOO Dashboard is een modern React-based dashboard dat statistieken en status upd
 - **Gen_Event** - Event notification system (woo_event_manager)
 - **Supervisor** - Fault-tolerant process supervision
 - **Rebar3** - Build tool en dependency management
+
+#### 3. PostgreSQL Backend (Modern DB)
+- **PostgreSQL 14+** - Production-grade relational database
+- **Node.js/Fastify** - Modern REST API server
+- **LISTEN/NOTIFY** - Real-time pub/sub for event streaming
+- **JSONB** - Flexible JSON storage with indexing
+- **Full-text Search** - Dutch language text search with tsvector
+- **Materialized Views** - Fast aggregated statistics
+- **Triggers** - Automatic audit trails and notifications
+- **Actor System** - Erlang-inspired actors backed by PostgreSQL
 
 ## Database Schema
 
@@ -460,6 +471,152 @@ const available = await backendService.checkErlangBackendAvailable();
 
 Zie `erlang-backend/README.md` voor volledige documentatie.
 
+## PostgreSQL Backend Architectuur
+
+De PostgreSQL backend combineert Erlang actor model patronen met moderne PostgreSQL features voor een robuuste, schaalbare oplossing.
+
+### Actor System met PostgreSQL
+
+Het actor systeem is volledig geïntegreerd met PostgreSQL:
+
+```typescript
+// Actor backed by PostgreSQL connection pool
+class Actor extends EventEmitter {
+  private pool: Pool;                   // PostgreSQL connection pool
+  private listenClient?: PoolClient;    // Dedicated client for LISTEN
+  
+  async send(message: Message): Promise<any> {
+    // Process message in transaction
+    const client = await this.pool.connect();
+    await client.query('BEGIN');
+    const result = await this.behavior(this.state, message);
+    await client.query('COMMIT');
+    client.release();
+    return result;
+  }
+  
+  async listen(channel: string): Promise<void> {
+    // Subscribe to PostgreSQL NOTIFY
+    this.listenClient = await this.pool.connect();
+    await this.listenClient.query(`LISTEN ${channel}`);
+    this.listenClient.on('notification', (msg) => {
+      this.emit('postgres_notify', {
+        channel: msg.channel,
+        payload: JSON.parse(msg.payload)
+      });
+    });
+  }
+}
+```
+
+### Modern PostgreSQL Features
+
+**1. LISTEN/NOTIFY voor Real-time Events**
+
+```sql
+-- Trigger sends NOTIFY on status change
+CREATE TRIGGER woo_request_status_change
+  AFTER UPDATE ON woo_requests
+  FOR EACH ROW
+  WHEN (OLD.status IS DISTINCT FROM NEW.status)
+  EXECUTE FUNCTION notify_status_change();
+
+-- Function sends notification
+CREATE FUNCTION notify_status_change() RETURNS trigger AS $$
+BEGIN
+  PERFORM pg_notify('status_change', 
+    json_build_object(
+      'document_id', NEW.id,
+      'old_status', OLD.status,
+      'new_status', NEW.status
+    )::text
+  );
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+```
+
+**2. Full-text Search (Nederlands)**
+
+```sql
+-- Auto-generated search vector
+search_vector tsvector GENERATED ALWAYS AS (
+  setweight(to_tsvector('dutch', coalesce(title, '')), 'A') ||
+  setweight(to_tsvector('dutch', coalesce(subject, '')), 'B')
+) STORED
+
+-- GIN index voor snelle search
+CREATE INDEX idx_woo_requests_search ON woo_requests USING GIN(search_vector);
+
+-- Search query
+SELECT *, ts_rank(search_vector, query) as rank
+FROM woo_requests, 
+     websearch_to_tsquery('dutch', 'bestemmingsplan') query
+WHERE search_vector @@ query
+ORDER BY rank DESC;
+```
+
+**3. JSONB voor Flexible Metadata**
+
+```sql
+-- JSONB column met GIN index
+metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+
+CREATE INDEX idx_woo_requests_metadata ON woo_requests USING GIN(metadata);
+
+-- Query JSONB
+SELECT * FROM woo_requests 
+WHERE metadata @> '{"theme": "ruimtelijke_ordening"}'::jsonb;
+```
+
+**4. Materialized Views voor Statistics**
+
+```sql
+CREATE MATERIALIZED VIEW statistics_summary AS
+SELECT 
+  status,
+  COUNT(*) as count,
+  AVG(EXTRACT(EPOCH FROM (updated_at - created_at)) / 86400) as avg_days_in_status
+FROM woo_requests
+GROUP BY status;
+
+-- Refresh when needed
+REFRESH MATERIALIZED VIEW statistics_summary;
+```
+
+### PostgreSQL Backend Features
+
+- ✅ **ACID Transactions** - Guaranteed data consistency
+- ✅ **Real-time LISTEN/NOTIFY** - Push-based event streaming
+- ✅ **Full-text Search** - Dutch language support with tsvector
+- ✅ **JSONB Indexing** - Fast flexible schema queries
+- ✅ **Materialized Views** - Pre-computed statistics
+- ✅ **Automatic Audit Trail** - status_history table via triggers
+- ✅ **Actor Model** - Erlang-inspired patterns with PostgreSQL backing
+- ✅ **Connection Pooling** - Efficient resource management
+- ✅ **Concurrent Access** - Row-level locking
+
+### Frontend Integration
+
+```typescript
+// Fetch alle documenten
+const docs = await postgresBackendService.getAll();
+
+// Full-text search
+const results = await postgresBackendService.search("bestemmingsplan");
+
+// Update status (triggers NOTIFY)
+await postgresBackendService.update("1", "Definitief");
+
+// Start simulatie
+await postgresBackendService.startSimulation();
+
+// Health check
+const available = await postgresBackendService.checkHealth();
+```
+
+Zie `postgres-backend/README.md` voor volledige documentatie.
+
 ### Pie Chart Visualization
 
 De pie chart (src/App.tsx) gebruikt `getDetailedStatusDistribution()` om alle 6 workflow statussen weer te geven:
@@ -556,16 +713,65 @@ npm run dev
 - De groene indicator toont dat de backend beschikbaar is
 - Pagina wordt automatisch herladen met Erlang backend
 
+### Quick Start - PostgreSQL Backend
+
+Voor het gebruik van de PostgreSQL backend met moderne database features:
+
+**1. Installeer PostgreSQL**
+
+```bash
+# macOS
+brew install postgresql@14
+brew services start postgresql@14
+
+# Ubuntu/Debian
+sudo apt-get update
+sudo apt-get install postgresql-14
+sudo systemctl start postgresql
+```
+
+**2. Create database**
+
+```bash
+createdb woo_dashboard
+```
+
+**3. Configureer environment**
+
+```bash
+cd postgres-backend
+cp .env.example .env
+# Edit .env met je PostgreSQL credentials
+```
+
+**4. Start de PostgreSQL backend**
+
+```bash
+cd postgres-backend
+npm install
+npm run dev
+```
+
+De backend luistert nu op `http://localhost:8081`
+
+**5. Switch naar PostgreSQL backend**
+
+- Open `http://localhost:5173/woo-dashboard/` in browser
+- Klik op **"🐘 PostgreSQL"** button in de header
+- De groene indicator toont dat de backend beschikbaar is
+- Pagina wordt automatisch herladen met PostgreSQL backend
+
 ### Backend Switching
 
 Het dashboard biedt een **Backend Switcher** component in de header:
 
 - **💾 Mock** - TypeScript in-memory database (geen server vereist)
 - **⚡ Erlang** - Echte Erlang/OTP backend (localhost:8080 vereist)
+- **🐘 PostgreSQL** - PostgreSQL database met modern features (localhost:8081 vereist)
 
 De status indicator toont:
-- 🟢 **Groen** - Erlang backend beschikbaar
-- 🔴 **Rood** - Erlang backend offline
+- 🟢 **Groen** - Backend beschikbaar
+- 🔴 **Rood** - Backend offline
 - ⚪ **Grijs** - Status onbekend/checking
 
 De backend keuze wordt opgeslagen in localStorage.
