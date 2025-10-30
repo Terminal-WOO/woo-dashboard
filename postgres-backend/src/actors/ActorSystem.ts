@@ -8,8 +8,8 @@
  * - Row-level locking for actor isolation
  */
 
-import { Pool, PoolClient } from 'pg';
-import { EventEmitter } from 'events';
+import { Pool, PoolClient, Notification } from "pg";
+import { EventEmitter } from "events";
 
 export type PID = string;
 
@@ -40,7 +40,12 @@ export class Actor extends EventEmitter {
   private listenClient?: PoolClient;
   private shutdownRequested = false;
 
-  constructor(pid: PID, handler: MessageHandler, pool: Pool, initialState: any = {}) {
+  constructor(
+    pid: PID,
+    handler: MessageHandler,
+    pool: Pool,
+    initialState: any = {},
+  ) {
     super();
     this.pid = pid;
     this.handler = handler;
@@ -81,7 +86,7 @@ export class Actor extends EventEmitter {
         // Execute handler in a transaction for consistency
         const client = await this.pool.connect();
         try {
-          await client.query('BEGIN');
+          await client.query("BEGIN");
 
           // Call handler with current state
           const newState = await this.handler(message, this.state);
@@ -91,20 +96,20 @@ export class Actor extends EventEmitter {
             this.state = newState;
           }
 
-          await client.query('COMMIT');
+          await client.query("COMMIT");
 
           // Emit event for successful processing
-          this.emit('message_processed', { message, pid: this.pid });
+          this.emit("message_processed", { message, pid: this.pid });
         } catch (error) {
-          await client.query('ROLLBACK');
+          await client.query("ROLLBACK");
           console.error(`[Actor ${this.pid}] Message processing error:`, error);
-          this.emit('error', { error, message, pid: this.pid });
+          this.emit("error", { error, message, pid: this.pid });
         } finally {
           client.release();
         }
       } catch (error) {
         console.error(`[Actor ${this.pid}] Fatal error:`, error);
-        this.emit('crash', { error, pid: this.pid });
+        this.emit("crash", { error, pid: this.pid });
       }
     }
 
@@ -124,15 +129,15 @@ export class Actor extends EventEmitter {
 
     await this.listenClient.query(`LISTEN ${channel}`);
 
-    this.listenClient.on('notification', (msg) => {
+    this.listenClient.on("notification", (msg: Notification) => {
       if (msg.channel === channel) {
         const payload = msg.payload ? JSON.parse(msg.payload) : {};
         this.send({
-          type: 'postgres_notify',
+          type: "postgres_notify",
           data: {
             channel: msg.channel,
-            payload
-          }
+            payload,
+          },
         });
       }
     });
@@ -178,10 +183,10 @@ export class Actor extends EventEmitter {
 
     // Wait for mailbox to drain
     while (this.mailbox.length > 0 && this.isProcessing) {
-      await new Promise(resolve => setTimeout(resolve, 10));
+      await new Promise((resolve) => setTimeout(resolve, 10));
     }
 
-    this.emit('shutdown', { pid: this.pid });
+    this.emit("shutdown", { pid: this.pid });
     console.log(`[Actor ${this.pid}] Shutdown complete`);
   }
 }
@@ -193,7 +198,8 @@ export class Actor extends EventEmitter {
  */
 export class Supervisor extends EventEmitter {
   private children: Map<PID, Actor> = new Map();
-  private restartStrategies: Map<PID, 'permanent' | 'temporary' | 'transient'> = new Map();
+  private restartStrategies: Map<PID, "permanent" | "temporary" | "transient"> =
+    new Map();
   private restartCounts: Map<PID, number> = new Map();
   private pool: Pool;
 
@@ -201,7 +207,11 @@ export class Supervisor extends EventEmitter {
   private maxRestarts: number;
   private withinSeconds: number;
 
-  constructor(pool: Pool, maxRestarts: number = 10, withinSeconds: number = 60) {
+  constructor(
+    pool: Pool,
+    maxRestarts: number = 10,
+    withinSeconds: number = 60,
+  ) {
     super();
     this.pool = pool;
     this.maxRestarts = maxRestarts;
@@ -213,14 +223,14 @@ export class Supervisor extends EventEmitter {
    */
   addChild(
     actor: Actor,
-    restartStrategy: 'permanent' | 'temporary' | 'transient' = 'permanent'
+    restartStrategy: "permanent" | "temporary" | "transient" = "permanent",
   ): void {
     this.children.set(actor.pid, actor);
     this.restartStrategies.set(actor.pid, restartStrategy);
     this.restartCounts.set(actor.pid, 0);
 
     // Listen for actor crashes
-    actor.on('crash', ({ error, pid }) => {
+    actor.on("crash", ({ error, pid }) => {
       console.error(`[Supervisor] Actor ${pid} crashed:`, error);
       this.handleActorCrash(actor);
     });
@@ -234,11 +244,11 @@ export class Supervisor extends EventEmitter {
   private handleActorCrash(actor: Actor): void {
     const strategy = this.restartStrategies.get(actor.pid);
 
-    if (strategy === 'permanent') {
+    if (strategy === "permanent") {
       // Always restart
       console.log(`[Supervisor] Restarting permanent actor ${actor.pid}`);
       this.restartActor(actor);
-    } else if (strategy === 'transient') {
+    } else if (strategy === "transient") {
       // Restart only if terminated abnormally
       console.log(`[Supervisor] Actor ${actor.pid} terminated abnormally`);
       this.restartActor(actor);
@@ -257,7 +267,7 @@ export class Supervisor extends EventEmitter {
 
     if (count >= this.maxRestarts) {
       console.error(`[Supervisor] Max restarts exceeded for ${actor.pid}`);
-      this.emit('max_restarts_exceeded', { pid: actor.pid });
+      this.emit("max_restarts_exceeded", { pid: actor.pid });
       return;
     }
 
@@ -269,16 +279,16 @@ export class Supervisor extends EventEmitter {
     }, this.withinSeconds * 1000);
 
     // Send restart message
-    actor.send({ type: 'restart' });
-    this.emit('actor_restarted', { pid: actor.pid });
+    actor.send({ type: "restart" });
+    this.emit("actor_restarted", { pid: actor.pid });
   }
 
   /**
    * Broadcast message to all children
    */
   async broadcast(message: Message): Promise<void> {
-    const promises = Array.from(this.children.values()).map(child =>
-      child.send(message)
+    const promises = Array.from(this.children.values()).map((child) =>
+      child.send(message),
     );
     await Promise.all(promises);
   }
@@ -287,12 +297,12 @@ export class Supervisor extends EventEmitter {
    * Shutdown all children
    */
   async shutdown(): Promise<void> {
-    const shutdownPromises = Array.from(this.children.values()).map(child =>
-      child.shutdown()
+    const shutdownPromises = Array.from(this.children.values()).map((child) =>
+      child.shutdown(),
     );
     await Promise.all(shutdownPromises);
     this.children.clear();
-    console.log('[Supervisor] All children shutdown');
+    console.log("[Supervisor] All children shutdown");
   }
 
   /**
@@ -358,7 +368,11 @@ export class Application {
   /**
    * Spawn and register an actor
    */
-  spawnRegister(name: string, handler: MessageHandler, initialState: any = {}): Actor {
+  spawnRegister(
+    name: string,
+    handler: MessageHandler,
+    initialState: any = {},
+  ): Actor {
     const actor = this.spawn(handler, initialState);
     this.registry.register(name, actor.pid);
     return actor;
@@ -370,7 +384,7 @@ export class Application {
   spawnSupervised(
     handler: MessageHandler,
     initialState: any = {},
-    restartStrategy: 'permanent' | 'temporary' | 'transient' = 'permanent'
+    restartStrategy: "permanent" | "temporary" | "transient" = "permanent",
   ): Actor {
     const actor = this.spawn(handler, initialState);
     this.supervisor.addChild(actor, restartStrategy);
@@ -402,10 +416,10 @@ export class Application {
    * Shutdown the application
    */
   async shutdown(): Promise<void> {
-    console.log('[Application] Shutting down...');
+    console.log("[Application] Shutting down...");
     await this.supervisor.shutdown();
     await this.pool.end();
-    console.log('[Application] Shutdown complete');
+    console.log("[Application] Shutdown complete");
   }
 
   /**
