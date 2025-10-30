@@ -40,6 +40,11 @@ function App() {
         await erlangSimulatorV2.initialize();
         const initialData = await erlangSimulatorV2.getStatistics();
         console.log("[App] Database initialized:", initialData);
+
+        // Load initial documents to show in stats
+        const initialRequests = await erlangSimulatorV2.getDocuments();
+        setRequests(initialRequests);
+
         setIsInitializing(false);
       } catch (error) {
         console.error("[App] Failed to initialize database:", error);

@@ -360,6 +360,10 @@ export class ErlangSimulatorV2 {
     return databaseService.getStatistics();
   }
 
+  getDocuments(): WOORequest[] {
+    return databaseService.queryAll();
+  }
+
   getProcesses(): string[] {
     return erlangSystem.getRegistry().registered();
   }
