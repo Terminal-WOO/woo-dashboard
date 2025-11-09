@@ -16,6 +16,8 @@ import { StatsCard } from "./components/StatsCard";
 import { RequestsTable } from "./components/RequestsTable";
 import { ActivityFeed } from "./components/ActivityFeed";
 import { BackendSwitcher } from "./components/BackendSwitcher";
+import { DMSSimulator } from "./components/DMSSimulator";
+import { EventStreamViewer } from "./components/EventStreamViewer";
 import {
   calculateStats,
   getMonthlyData,
@@ -208,6 +210,23 @@ function App() {
               </PieChart>
             </ResponsiveContainer>
           </div>
+        </section>
+
+        {/* DMS Simulator Section */}
+        <section
+          className="dms-simulator-section"
+          style={{ marginBottom: "2rem" }}
+        >
+          <DMSSimulator />
+        </section>
+
+
+        {/* Event Stream Section */}
+        <section
+          className="event-stream-section"
+          style={{ marginBottom: "2rem" }}
+        >
+          <EventStreamViewer />
         </section>
 
         {/* Activity Feed & Tabel Grid */}

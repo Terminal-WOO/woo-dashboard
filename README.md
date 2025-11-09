@@ -10,26 +10,58 @@ Het dashboard is live beschikbaar op: **https://terminal-woo.github.io/woo-dashb
 
 ## Overzicht
 
-WOO Dashboard is een modern React-based dashboard dat statistieken en status updates van WOO-verzoeken visualiseert. Het systeem biedt **drie backend opties**:
+WOO Dashboard is een modern React-based dashboard dat statistieken en status updates van WOO-verzoeken visualiseert. Het systeem combineert **drie backend opties** met **volledige Document Management Systems** en **event streaming**:
 
+### Backend Opties:
 1. **Mock Backend**: Pure JavaScript in-memory database (TypeScript)
 2. **Erlang Backend**: Echte Erlang/OTP applicatie met gen_server, supervisors en REST API
 3. **PostgreSQL Backend**: Modern database systeem met LISTEN/NOTIFY, JSONB, full-text search en actor model
 
+### Document Management:
+4. **Paperless-ngx DMS**: Lichtgewicht open-source document management met OCR en tagging
+5. **Alfresco DMS**: Enterprise ECM platform met workflow management
+6. **DMS Simulator**: Interactieve document generator met realistische PDFs (6 types)
+
+### Event Streaming:
+7. **NATS JetStream**: Event streaming platform met 7-dagen persistente opslag
+8. **Event Consumer API**: REST API voor event querying en statistieken
+9. **Event Stream Viewer**: Real-time dashboard component voor live event monitoring
+
 ### Belangrijkste Functies
 
+#### WOO Dashboard Core:
 - **🔄 Triple Backend Architecture**: Switch tussen mock, Erlang en PostgreSQL backend via UI
 - **⚡ Erlang/OTP Backend**: Volledige OTP applicatie met gen_server, gen_event, supervisor tree
 - **💾 Mock Database**: Pure JavaScript in-memory database met 24 realistische documenten
-- **🎭 Erlang Actor System**: Fault-tolerant event handling met supervisors en message passing (beide backends)
+- **🎭 Erlang Actor System**: Fault-tolerant event handling met supervisors en message passing
 - **📊 6-Stage Workflow**: Lineaire status progressie met cyclische herstart
   - Ontvangen → In behandeling → 1e Concept → 2e Concept → Definitief → Gepubliceerd
 - **⏱️ Real-time Simulatie**: Automatische doorloop van document statussen (2 seconden interval)
 - **📡 Live Event Feed**: Real-time notificaties van alle status wijzigingen via Erlang actors
 - **🥧 Detailed Status Visualization**: Pie chart toont alle 6 workflow statussen met unieke kleuren
 - **🏛️ Organisatie Filtering**: Gescheiden data voor gemeente (12 documenten) en provincie (12 documenten)
+
+#### Document Management Systems:
+- **📄 Paperless-ngx**: Lichtgewicht DMS met PostgreSQL 18 + MinIO S3 storage
+- **🏢 Alfresco**: Enterprise ECM met Digital Workspace en Share UI
+- **🎭 DMS Simulator**: Upload 1-50 realistische PDFs (besluit, advies, brief, notitie, rapportage, contract)
+- **📦 MinIO Storage**: S3-compatible lokale object storage (NIET AWS cloud!)
+- **🗄️ PostgreSQL Metadata**: Automatische tracking van buckets, objects, en statistieken
+- **🔄 Multi-DMS Upload**: Upload tegelijk naar Paperless én Alfresco
+
+#### Event Streaming:
+- **📡 NATS JetStream**: Persistent event storage met 7-dagen retentie
+- **🔍 Event Stream Viewer**: Real-time dashboard component met filters en statistieken
+- **📊 Event Analytics**: Totaal events, per systeem, gemiddelde upload tijd
+- **🎯 Complete Audit Trail**: Alle document.uploaded, document.updated, document.deleted events
+- **🌐 REST API**: Event Consumer API op port 3002 met SSE support
+
+#### Developer Experience:
+- **🚀 Automated Startup**: `start-all.sh` script voor complete systeem
+- **🔍 Verification Tool**: `verify-system.sh` voor health checks
+- **📚 Comprehensive Docs**: COMPLETE_SYSTEM_GUIDE.md met alle features
+- **🐳 Docker Compose**: Alles draait in containers (PostgreSQL 18, MinIO, NATS, DMS)
 - **📱 Responsive Design**: Werkt op desktop, tablet en mobile
-- **🌐 REST API**: Complete RESTful API (Erlang backend)
 
 ## Technologie Stack
 
@@ -1102,6 +1134,185 @@ export default defineConfig({
 ```
 
 ## Changelog
+
+## 📄 Document Management Systems (DMS)
+
+Het WOO Dashboard is uitgebreid met **volledige Document Management Systems** voor archivering en beheer van WOO documenten:
+
+### Beschikbare DMS Systemen
+
+**1. Paperless-ngx** (Lichtgewicht - Aanbevolen)
+- Open-source document management voor kleine tot middelgrote organisaties
+- PostgreSQL 18 database met MinIO metadata tracking
+- Automatische OCR en tagging
+- MinIO S3-compatible storage (lokaal, geen AWS cloud!)
+- Web UI op http://localhost:8000
+
+**2. Alfresco Community Edition** (Enterprise)
+- Enterprise-grade ECM/DMS platform voor grote organisaties
+- Volledige workflow management en compliance features
+- Digital Workspace en Share UI
+- Vereist 4GB+ RAM, ~10 minuten startup tijd
+- Web UI op http://localhost:8080
+
+### DMS Simulator
+
+Interactieve component in het dashboard voor het uploaden van test documenten:
+
+**Features:**
+- 📊 Variabel aantal documenten (1-50) via slider
+- 📝 Realistische PDF generatie met PDFKit
+- 🏛️ 6 documenttypes: besluit, advies, brief, notitie, rapportage, contract
+- 🔄 Real-time progress tracking
+- 🎯 Upload naar Paperless, Alfresco, of beide systemen
+
+**Gebruik:**
+1. Start het DMS systeem (zie hieronder)
+2. Open dashboard op http://localhost:5173
+3. Scroll naar "Document Management Simulator"
+4. Stel aantal documenten in
+5. Selecteer doelsysteem(en)
+6. Klik "Start Simulatie"
+
+### NATS JetStream Event Streaming
+
+Alle document uploads worden geregistreerd in een **NATS JetStream** event systeem:
+
+**Features:**
+- 📡 Persistent event storage (7 dagen retentie)
+- 🔍 Complete audit trail van alle document operaties
+- 📊 Real-time event stream viewer in dashboard
+- 🎯 Event types: document.uploaded, document.updated, document.deleted
+- 📈 Statistieken: totaal events, per systeem, gemiddelde upload tijd
+
+**Event Schema:**
+```typescript
+{
+  eventId: "evt-1234-xyz",
+  eventType: "document.uploaded",
+  timestamp: "2024-11-09T10:30:00Z",
+  system: "paperless",
+  document: {
+    id: "doc-123",
+    title: "Besluit gemeenteraad 2024-01",
+    type: "besluit",
+    category: "Bestuur",
+    size: 45678
+  },
+  metadata: {
+    simulationId: "sim-456",
+    uploadDuration: 1234,
+    source: "dms-simulator"
+  }
+}
+```
+
+### MinIO Storage met PostgreSQL Tracking
+
+Beide DMS systemen gebruiken **MinIO** voor object storage met volledige metadata tracking in PostgreSQL:
+
+**Features:**
+- 🪣 Automatische bucket statistieken
+- 📦 Object metadata tracking (size, tags, upload time)
+- 📊 SQL views voor analytics (v_bucket_overview, v_recent_uploads)
+- 🔍 Query capabilities via PostgreSQL
+
+**Voorbeeld Query:**
+```sql
+SELECT * FROM minio_metadata.v_bucket_overview;
+SELECT * FROM minio_metadata.v_recent_uploads LIMIT 10;
+```
+
+### Snelstart DMS Systemen
+
+**Volledig systeem starten:**
+```bash
+./start-all.sh
+```
+
+Dit script start in volgorde:
+1. NATS JetStream (event streaming)
+2. DMS keuze (Paperless, Alfresco, of beide)
+3. DMS Simulator (document upload service)
+4. WOO Dashboard (frontend)
+
+**Alleen NATS + Paperless:**
+```bash
+# Start NATS
+cd nats-events && docker-compose up -d && cd ..
+
+# Start Paperless
+cd paperless-ngx-dms && docker-compose up -d && cd ..
+
+# Start DMS Simulator
+cd dms-simulator && npm run dev &
+
+# Start Dashboard
+npm run dev
+```
+
+**Verificatie:**
+```bash
+./verify-system.sh
+```
+
+Controleert alle services en endpoints.
+
+### Architectuur
+
+```
+Dashboard → DMS Simulator → [Paperless/Alfresco] → MinIO
+              ↓
+         NATS JetStream ← Event Consumer API
+              ↓
+      Event Stream Viewer (Dashboard Component)
+```
+
+### Documentatie
+
+Uitgebreide documentatie per component:
+- `COMPLETE_SYSTEM_GUIDE.md` - Volledige systeemgids met alle features
+- `paperless-ngx-dms/README.md` - Paperless-ngx setup en configuratie
+- `alfresco-dms/README.md` - Alfresco setup en vergelijking
+- `nats-events/README.md` - NATS JetStream architectuur
+- `nats-events/QUICKSTART.md` - NATS snelstart gids
+- `dms-simulator/README.md` - Document generator details
+
+---
+
+## Changelog
+
+### v2.2.0 (9 november 2024) - Document Management Edition
+
+**🎉 Major New Features:**
+- 📄 **Paperless-ngx DMS** - Lichtgewicht document management met MinIO + PostgreSQL 18
+- 🏢 **Alfresco DMS** - Enterprise ECM platform voor grote organisaties
+- 🎭 **DMS Simulator** - Interactieve document generator met realistische PDFs
+- 📡 **NATS JetStream** - Event streaming platform voor complete audit trail
+- 📊 **Event Stream Viewer** - Real-time dashboard component voor events
+- 🗄️ **MinIO Metadata Tracking** - PostgreSQL schema voor object storage analytics
+
+**DMS Features:**
+- ✨ Twee volledige DMS opties (Paperless-ngx & Alfresco)
+- 📝 Realistische PDF generatie (6 documenttypes)
+- 🔄 Real-time upload progress tracking
+- 🎯 Multi-systeem support (upload naar beide DMS tegelijk)
+- 📡 NATS event publishing bij elke upload
+- 🗄️ MinIO S3-compatible lokale storage (geen AWS!)
+- 📊 PostgreSQL 18 met metadata tracking
+
+**Event System Features:**
+- 🎯 NATS JetStream met 7-dagen retentie
+- 📡 Server-Sent Events voor live updates
+- 📊 Statistieken dashboard (totaal, per systeem, gemiddelde tijd)
+- 🔍 Event filtering en querying via REST API
+- 💾 Persistent event storage met replay capabilities
+
+**Developer Tools:**
+- 🚀 `start-all.sh` - Complete systeem startup script
+- 🔍 `verify-system.sh` - Service verification tool
+- 📚 `COMPLETE_SYSTEM_GUIDE.md` - Uitgebreide documentatie
+- 🐳 Docker Compose setups voor alle componenten
 
 ### v2.1.0 (30 oktober 2024) - Dual Backend Edition
 

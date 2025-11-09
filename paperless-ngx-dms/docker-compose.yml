@@ -1,0 +1,145 @@
+version: "3.4"
+
+services:
+  broker:
+    image: docker.io/library/redis:7
+    restart: unless-stopped
+    volumes:
+      - redisdata:/data
+
+  db:
+    image: docker.io/library/postgres:18
+    restart: unless-stopped
+    ports:
+      - "5433:5432" # Expose voor externe toegang (niet conflicteren met main project)
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init-db:/docker-entrypoint-initdb.d
+    environment:
+      POSTGRES_DB: paperless
+      POSTGRES_USER: paperless
+      POSTGRES_PASSWORD: paperless
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # MinIO Client - creates bucket on startup
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      sleep 5;
+      /usr/bin/mc alias set myminio http://minio:9000 minioadmin minioadmin;
+      /usr/bin/mc mb myminio/paperless-documents --ignore-existing;
+      /usr/bin/mc mb myminio/paperless-media --ignore-existing;
+      /usr/bin/mc anonymous set download myminio/paperless-documents;
+      /usr/bin/mc anonymous set download myminio/paperless-media;
+      exit 0;
+      "
+
+  webserver:
+    image: ghcr.io/paperless-ngx/paperless-ngx:latest
+    restart: unless-stopped
+    depends_on:
+      - db
+      - broker
+      - minio
+      - minio-init
+    ports:
+      - "8000:8000"
+    volumes:
+      - data:/usr/src/paperless/data
+      - ./export:/usr/src/paperless/export
+      - ./consume:/usr/src/paperless/consume
+    environment:
+      PAPERLESS_REDIS: redis://broker:6379
+      PAPERLESS_DBHOST: db
+      PAPERLESS_DBPORT: 5432
+      PAPERLESS_DBNAME: paperless
+      PAPERLESS_DBUSER: paperless
+      PAPERLESS_DBPASS: paperless
+      PAPERLESS_TIME_ZONE: Europe/Amsterdam
+      PAPERLESS_OCR_LANGUAGE: nld+eng
+      PAPERLESS_ADMIN_USER: admin
+      PAPERLESS_ADMIN_PASSWORD: admin
+      PAPERLESS_URL: http://localhost:8000
+      PAPERLESS_SECRET_KEY: change-me-to-a-random-string
+      # Optional: Enable Tika for better document parsing
+      PAPERLESS_TIKA_ENABLED: 1
+      PAPERLESS_TIKA_ENDPOINT: http://tika:9998
+      PAPERLESS_TIKA_GOTENBERG_ENDPOINT: http://gotenberg:3000
+      # Local MinIO Object Storage Configuration
+      PAPERLESS_DBENGINE: postgresql
+      # MinIO credentials (S3-compatible local storage)
+      MINIO_ENDPOINT_URL: http://minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_DOCUMENTS_BUCKET: paperless-documents
+      MINIO_MEDIA_BUCKET: paperless-media
+      MINIO_USE_SSL: false
+      # Django S3 backend still needs AWS_ prefix (it's the library name, not AWS service)
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin
+      AWS_STORAGE_BUCKET_NAME: paperless-documents
+      AWS_S3_ENDPOINT_URL: http://minio:9000
+      AWS_S3_USE_SSL: false
+      AWS_S3_VERIFY: false
+      AWS_MEDIA_BUCKET_NAME: paperless-media
+
+  # Optional: Gotenberg for better PDF conversion
+  gotenberg:
+    image: docker.io/gotenberg/gotenberg:8
+    restart: unless-stopped
+    command:
+      - "gotenberg"
+      - "--chromium-disable-javascript=true"
+      - "--chromium-allow-list=file:///tmp/.*"
+
+  # Optional: Apache Tika for better document parsing
+  tika:
+    image: docker.io/apache/tika:latest
+    restart: unless-stopped
+
+  # MinIO Metadata Sync Service
+  minio-sync:
+    build: ./minio-metadata-sync
+    restart: unless-stopped
+    depends_on:
+      - db
+      - minio
+    environment:
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MINIO_USE_SSL: false
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: paperless
+      POSTGRES_USER: paperless
+      POSTGRES_PASSWORD: paperless
+      SYNC_MODE: continuous
+      SYNC_INTERVAL_MINUTES: 5
+
+volumes:
+  data:
+  pgdata:
+  redisdata:
+  minio_data:

@@ -1,0 +1,28 @@
+# Environment
+.env
+
+# Data directories
+data/*
+!data/.gitkeep
+logs/*
+!logs/.gitkeep
+
+# Alfresco extensions (if you add them later)
+config/modules/
+
+# Backups
+backup/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Docker
+.dockerignore

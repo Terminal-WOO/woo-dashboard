@@ -1,0 +1,26 @@
+# Environment files
+.env
+
+# Data directories
+consume/*
+!consume/.gitkeep
+export/*
+!export/.gitkeep
+
+# Backup directory
+backup/
+
+# Docker volumes (managed by Docker)
+data/
+media/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
