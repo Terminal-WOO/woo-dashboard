@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import { generateRandomMetadata, generatePDF } from "./document-generator.js";
 import { PaperlessClient } from "./paperless-client.js";
 import { AlfrescoClient } from "./alfresco-client.js";
+import { LogicalDOCClient } from "./logicaldoc-client.js";
 import { NATSEventClient, DocumentEvent } from "./nats-client.js";
 
 dotenv.config();
@@ -67,6 +68,7 @@ fastify.get("/test-connections", async (request, reply) => {
   const results = {
     paperless: false,
     alfresco: false,
+    logicaldoc: false,
   };
 
   if (process.env.PAPERLESS_ENABLED === "true") {
@@ -86,6 +88,15 @@ fastify.get("/test-connections", async (request, reply) => {
     results.alfresco = await alfresco.testConnection();
   }
 
+  if (process.env.LOGICALDOC_ENABLED === "true") {
+    const logicaldoc = new LogicalDOCClient(
+      process.env.LOGICALDOC_URL || "http://localhost:8082",
+      process.env.LOGICALDOC_USERNAME || "admin",
+      process.env.LOGICALDOC_PASSWORD || "admin",
+    );
+    results.logicaldoc = await logicaldoc.testConnection();
+  }
+
   return results;
 });
 
@@ -93,7 +104,7 @@ fastify.get("/test-connections", async (request, reply) => {
 fastify.post<{
   Body: {
     count: number;
-    systems: Array<"paperless" | "alfresco">;
+    systems: Array<"paperless" | "alfresco" | "logicaldoc">;
   };
 }>("/simulate", async (request, reply) => {
   const { count, systems } = request.body;
@@ -153,7 +164,7 @@ fastify.get("/simulations", async () => {
 async function runSimulation(
   simulationId: string,
   count: number,
-  systems: Array<"paperless" | "alfresco">,
+  systems: Array<"paperless" | "alfresco" | "logicaldoc">,
 ) {
   const simulation = activeSimulations.get(simulationId);
   if (!simulation) return;
@@ -172,6 +183,15 @@ async function runSimulation(
           process.env.ALFRESCO_URL || "http://localhost:8080",
           process.env.ALFRESCO_USERNAME || "admin",
           process.env.ALFRESCO_PASSWORD || "admin",
+        )
+      : null;
+
+  const logicaldocClient =
+    systems.includes("logicaldoc") && process.env.LOGICALDOC_ENABLED === "true"
+      ? new LogicalDOCClient(
+          process.env.LOGICALDOC_URL || "http://localhost:8082",
+          process.env.LOGICALDOC_USERNAME || "admin",
+          process.env.LOGICALDOC_PASSWORD || "admin",
         )
       : null;
 
@@ -295,6 +315,63 @@ async function runSimulation(
         }
       }
 
+      // Upload to LogicalDOC
+      if (logicaldocClient) {
+        try {
+          const uploadStart = Date.now();
+          const result = await logicaldocClient.uploadDocument(
+            pdfBuffer,
+            metadata,
+          );
+          const uploadDuration = Date.now() - uploadStart;
+
+          simulation.documents.push({
+            id: result.id,
+            title: metadata.title,
+            system: "logicaldoc",
+            status: "success",
+          });
+          simulation.completed++;
+          fastify.log.info(`Uploaded to LogicalDOC: ${metadata.title}`);
+
+          // Publish NATS event
+          if (natsClient) {
+            const event: DocumentEvent = {
+              eventId: `evt-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+              eventType: "document.uploaded",
+              timestamp: new Date().toISOString(),
+              system: "logicaldoc",
+              document: {
+                id: result.id,
+                title: metadata.title,
+                type: metadata.type,
+                category: metadata.category,
+                author: metadata.author,
+                date: metadata.date.toISOString(),
+                tags: metadata.tags,
+                size: pdfBuffer.length,
+                contentType: "application/pdf",
+              },
+              metadata: {
+                simulationId,
+                uploadDuration,
+                source: "dms-simulator",
+              },
+            };
+            await natsClient.publishDocumentEvent(event);
+          }
+        } catch (error) {
+          fastify.log.error(`Failed to upload to LogicalDOC: ${error}`);
+          simulation.documents.push({
+            id: `error-${Date.now()}`,
+            title: metadata.title,
+            system: "logicaldoc",
+            status: "failed",
+          });
+          simulation.failed++;
+        }
+      }
+
       // Small delay to avoid overwhelming the systems
       await new Promise((resolve) => setTimeout(resolve, 500));
     } catch (error) {
@@ -320,6 +397,7 @@ const start = async () => {
     fastify.log.info(`DMS Simulator running on http://${host}:${port}`);
     fastify.log.info(`Paperless enabled: ${process.env.PAPERLESS_ENABLED}`);
     fastify.log.info(`Alfresco enabled: ${process.env.ALFRESCO_ENABLED}`);
+    fastify.log.info(`LogicalDOC enabled: ${process.env.LOGICALDOC_ENABLED}`);
   } catch (err) {
     fastify.log.error(err);
     process.exit(1);

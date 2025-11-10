@@ -1,0 +1,103 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:14
+    container_name: logicaldoc-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: logicaldoc
+      POSTGRES_USER: logicaldoc
+      POSTGRES_PASSWORD: logicaldoc
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - logicaldoc-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U logicaldoc"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MinIO S3-compatible storage
+  minio:
+    image: minio/minio:latest
+    container_name: logicaldoc-minio
+    restart: unless-stopped
+    ports:
+      - "9002:9000"
+      - "9003:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    networks:
+      - logicaldoc-network
+
+  # MinIO Client - Create bucket
+  minio-init:
+    image: minio/mc:latest
+    container_name: logicaldoc-minio-init
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      sleep 5;
+      /usr/bin/mc alias set myminio http://minio:9000 minioadmin minioadmin;
+      /usr/bin/mc mb myminio/logicaldoc-docs --ignore-existing;
+      /usr/bin/mc anonymous set download myminio/logicaldoc-docs;
+      echo 'MinIO bucket logicaldoc-docs created';
+      exit 0;
+      "
+    networks:
+      - logicaldoc-network
+
+  # LogicalDOC Community Edition
+  logicaldoc:
+    image: logicaldoc/logicaldoc-ce:latest
+    container_name: logicaldoc-app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    ports:
+      - "8082:8080"
+    environment:
+      # Database configuration (used by auto-install.j2 template)
+      DB_ENGINE: postgres
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: logicaldoc
+      DB_USER: logicaldoc
+      DB_PASSWORD: logicaldoc
+      # Memory settings
+      LDOC_MEMORY: 2048
+    volumes:
+      - logicaldoc_conf:/opt/logicaldoc/conf
+      - logicaldoc_repository:/opt/logicaldoc/repository
+    networks:
+      - logicaldoc-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+
+networks:
+  logicaldoc-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  minio_data:
+  logicaldoc_conf:
+  logicaldoc_repository:

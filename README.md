@@ -19,7 +19,7 @@ WOO Dashboard is een modern React-based dashboard dat statistieken en status upd
 
 ### Document Management:
 4. **Paperless-ngx DMS**: Lichtgewicht open-source document management met OCR en tagging
-5. **Alfresco DMS**: Enterprise ECM platform met workflow management
+5. **LogicalDOC DMS**: Enterprise DMS met native S3/MinIO storage en REST/SOAP API
 6. **DMS Simulator**: Interactieve document generator met realistische PDFs (6 types)
 
 ### Event Streaming:
@@ -43,11 +43,11 @@ WOO Dashboard is een modern React-based dashboard dat statistieken en status upd
 
 #### Document Management Systems:
 - **📄 Paperless-ngx**: Lichtgewicht DMS met PostgreSQL 18 + MinIO S3 storage
-- **🏢 Alfresco**: Enterprise ECM met Digital Workspace en Share UI
+- **🏢 LogicalDOC CE**: Enterprise DMS met native PostgreSQL + MinIO S3 integration
 - **🎭 DMS Simulator**: Upload 1-50 realistische PDFs (besluit, advies, brief, notitie, rapportage, contract)
 - **📦 MinIO Storage**: S3-compatible lokale object storage (NIET AWS cloud!)
 - **🗄️ PostgreSQL Metadata**: Automatische tracking van buckets, objects, en statistieken
-- **🔄 Multi-DMS Upload**: Upload tegelijk naar Paperless én Alfresco
+- **🔄 Multi-DMS Upload**: Upload tegelijk naar Paperless én LogicalDOC
 
 #### Event Streaming:
 - **📡 NATS JetStream**: Persistent event storage met 7-dagen retentie
