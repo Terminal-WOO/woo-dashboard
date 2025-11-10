@@ -76,7 +76,7 @@ services:
       PAPERLESS_DBUSER: paperless
       PAPERLESS_DBPASS: paperless
       PAPERLESS_TIME_ZONE: Europe/Amsterdam
-      PAPERLESS_OCR_LANGUAGE: nld+eng
+      PAPERLESS_OCR_LANGUAGE: eng
       PAPERLESS_ADMIN_USER: admin
       PAPERLESS_ADMIN_PASSWORD: admin
       PAPERLESS_URL: http://localhost:8000
