@@ -1,0 +1,173 @@
+version: "3.8"
+
+services:
+  # MinIO S3-compatible storage
+  minio:
+    image: minio/minio:latest
+    container_name: alfresco-minio
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    networks:
+      - alfresco-network
+
+  # MinIO Client - creates bucket on startup
+  minio-init:
+    image: minio/mc:latest
+    container_name: alfresco-minio-init
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      sleep 5;
+      /usr/bin/mc alias set myminio http://minio:9000 minioadmin minioadmin;
+      /usr/bin/mc mb myminio/alfresco-content --ignore-existing;
+      /usr/bin/mc anonymous set download myminio/alfresco-content;
+      echo 'MinIO bucket alfresco-content created';
+      exit 0;
+      "
+    networks:
+      - alfresco-network
+
+  # PostgreSQL database
+  postgres:
+    image: postgres:14
+    container_name: alfresco-postgres
+    restart: unless-stopped
+    ports:
+      - "5434:5432"
+    environment:
+      POSTGRES_DB: alfresco
+      POSTGRES_USER: alfresco
+      POSTGRES_PASSWORD: alfresco
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - alfresco-network
+
+  # Alfresco Content Repository with S3 connector
+  alfresco:
+    image: alfresco/alfresco-content-repository-community:23.2.1
+    container_name: alfresco-repository
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - minio
+      - minio-init
+    ports:
+      - "8080:8080"
+    environment:
+      # Database config
+      JAVA_OPTS: >
+        -Ddb.driver=org.postgresql.Driver
+        -Ddb.username=alfresco
+        -Ddb.password=alfresco
+        -Ddb.url=jdbc:postgresql://postgres:5432/alfresco
+        -Dsolr.host=solr6
+        -Dsolr.port=8983
+        -Dsolr.secureComms=secret
+        -Dsolr.sharedSecret=secret
+        -Dsolr.base.url=/solr
+        -Dindex.subsystem.name=solr6
+        -Dshare.host=127.0.0.1
+        -Dshare.port=8080
+        -Dalfresco.host=localhost
+        -Dalfresco.port=8080
+        -Daos.baseUrlOverwrite=http://localhost:8080/alfresco/aos
+        -Dmessaging.broker.url="failover:(nio://activemq:61616)?timeout=3000&jms.useCompression=true"
+        -Ddeployment.method=DOCKER_COMPOSE
+        -DlocalTransform.core-aio.url=http://transform-core-aio:8090/
+        -Dcsrf.filter.enabled=false
+        -Dalfresco.restApi.basicAuthScheme=true
+        -Xms1500m -Xmx1500m
+        -Dconnector.s3.enabled=true
+        -Dconnector.s3.bucketName=alfresco-content
+        -Dconnector.s3.endpoint=http://minio:9000
+        -Dconnector.s3.accessKey=minioadmin
+        -Dconnector.s3.secretKey=minioadmin
+        -Dconnector.s3.pathStyleAccess=true
+    volumes:
+      - alfresco_data:/usr/local/tomcat/alf_data
+    networks:
+      - alfresco-network
+
+  # Alfresco Transform Service
+  transform-core-aio:
+    image: alfresco/alfresco-transform-core-aio:5.1.0
+    container_name: alfresco-transform
+    restart: unless-stopped
+    environment:
+      JAVA_OPTS: -Xms512m -Xmx512m
+    networks:
+      - alfresco-network
+
+  # Alfresco Search Services (Solr)
+  solr6:
+    image: alfresco/alfresco-search-services:2.0.10
+    container_name: alfresco-solr
+    restart: unless-stopped
+    environment:
+      SOLR_ALFRESCO_HOST: alfresco
+      SOLR_ALFRESCO_PORT: 8080
+      SOLR_SOLR_HOST: solr6
+      SOLR_SOLR_PORT: 8983
+      SOLR_CREATE_ALFRESCO_DEFAULTS: alfresco,archive
+      ALFRESCO_SECURE_COMMS: secret
+      JAVA_TOOL_OPTIONS: -Dalfresco.secureComms.secret=secret
+    volumes:
+      - solr_data:/opt/alfresco-search-services/data
+    networks:
+      - alfresco-network
+
+  # ActiveMQ
+  activemq:
+    image: alfresco/alfresco-activemq:5.18-jre17-rockylinux8
+    container_name: alfresco-activemq
+    restart: unless-stopped
+    ports:
+      - "8161:8161"
+    networks:
+      - alfresco-network
+
+  # Alfresco Share (Web UI)
+  share:
+    image: alfresco/alfresco-share:23.2.1
+    container_name: alfresco-share
+    restart: unless-stopped
+    depends_on:
+      - alfresco
+    ports:
+      - "8081:8080"
+    environment:
+      REPO_HOST: alfresco
+      REPO_PORT: 8080
+      JAVA_OPTS: >
+        -Xms500m -Xmx500m
+        -Dalfresco.host=localhost
+        -Dalfresco.port=8080
+        -Dalfresco.context=alfresco
+        -Dalfresco.protocol=http
+    networks:
+      - alfresco-network
+
+volumes:
+  minio_data:
+  postgres_data:
+  alfresco_data:
+  solr_data:
+
+networks:
+  alfresco-network:
+    driver: bridge
