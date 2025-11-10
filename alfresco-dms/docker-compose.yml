@@ -86,7 +86,7 @@ services:
     ports:
       - "8080:8080"
     environment:
-      JAVA_OPTS: "-Ddb.driver=org.postgresql.Driver -Ddb.username=alfresco -Ddb.password=alfresco -Ddb.url=jdbc:postgresql://postgres:5432/alfresco -Ddb.pool.max=275 -Dsolr.host=solr6 -Dsolr.port=8983 -Dsolr.http.connection.timeout=1000 -Dsolr.secureComms=secret -Dsolr.sharedSecret=secret -Dsolr.base.url=/solr -Dindex.subsystem.name=solr6 -Dshare.host=127.0.0.1 -Dshare.port=8080 -Dalfresco.host=localhost -Dalfresco.port=8080 -Dapi-explorer.url=http://localhost:8080/api-explorer -Daos.baseUrlOverwrite=http://localhost:8080/alfresco/aos -Ddeployment.method=DOCKER_COMPOSE -DlocalTransform.core-aio.url=http://transform-core-aio:8090/ -Dcsrf.filter.enabled=false -Dalfresco.restApi.basicAuthScheme=true -Xms1500m -Xmx1500m"
+      JAVA_OPTS: "-Ddb.driver=org.postgresql.Driver -Ddb.username=alfresco -Ddb.password=alfresco -Ddb.url=jdbc:postgresql://postgres:5432/alfresco -Ddb.pool.max=275 -Dsolr.host=solr6 -Dsolr.port=8983 -Dsolr.http.connection.timeout=1000 -Dsolr.secureComms=secret -Dsolr.sharedSecret=secret -Dsolr.base.url=/solr -Dindex.subsystem.name=solr6 -Dshare.host=127.0.0.1 -Dshare.port=8080 -Dalfresco.host=localhost -Dalfresco.port=8080 -Dapi-explorer.url=http://localhost:8080/api-explorer -Daos.baseUrlOverwrite=http://localhost:8080/alfresco/aos -Ddeployment.method=DOCKER_COMPOSE -DlocalTransform.core-aio.url=http://transform-core-aio:8090/ -Dcsrf.filter.enabled=false -Dalfresco.restApi.basicAuthScheme=true -Dencryption.bootstrap.reencrypt=false -Xms1500m -Xmx1500m"
     volumes:
       - alf_data:/usr/local/tomcat/alf_data
       - ./config:/usr/local/tomcat/shared/classes/alfresco/extension
