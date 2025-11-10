@@ -13,7 +13,7 @@ services:
       POSTGRES_USER: alfresco
       POSTGRES_PASSWORD: alfresco
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql
       - ./init-db:/docker-entrypoint-initdb.d
     command: postgres -c max_connections=300 -c log_min_messages=LOG
     healthcheck:
@@ -86,40 +86,7 @@ services:
     ports:
       - "8080:8080"
     environment:
-      # Database Configuration
-      JAVA_OPTS: >
-        -Ddb.driver=org.postgresql.Driver
-        -Ddb.username=alfresco
-        -Ddb.password=alfresco
-        -Ddb.url=jdbc:postgresql://postgres:5432/alfresco
-        -Ddb.pool.max=275
-        -Dsolr.host=solr6
-        -Dsolr.port=8983
-        -Dsolr.http.connection.timeout=1000
-        -Dsolr.secureComms=secret
-        -Dsolr.sharedSecret=secret
-        -Dsolr.base.url=/solr
-        -Dindex.subsystem.name=solr6
-        -Dshare.host=127.0.0.1
-        -Dshare.port=8080
-        -Dalfresco.host=localhost
-        -Dalfresco.port=8080
-        -Dapi-explorer.url=http://localhost:8080/api-explorer
-        -Daos.baseUrlOverwrite=http://localhost:8080/alfresco/aos
-        -Dmessaging.broker.url="failover:(nio://activemq:61616)?timeout=3000&jms.useCompression=true"
-        -Ddeployment.method=DOCKER_COMPOSE
-        -DlocalTransform.core-aio.url=http://transform-core-aio:8090/
-        -Dcsrf.filter.enabled=false
-        -Dalfresco.restApi.basicAuthScheme=true
-        -Xms1500m -Xmx1500m
-        -Dconnector.s3.bucketName=alfresco-content
-        -Dconnector.s3.endpoint=http://minio:9000
-        -Dconnector.s3.accessKey=minioadmin
-        -Dconnector.s3.secretKey=minioadmin
-        -Dconnector.s3.enabled=true
-        -Dconnector.s3.bucketRegion=us-east-1
-        -Dconnector.s3.encryption=none
-        -Dconnector.s3.autoLowerCaseBucketName=false
+      JAVA_OPTS: "-Ddb.driver=org.postgresql.Driver -Ddb.username=alfresco -Ddb.password=alfresco -Ddb.url=jdbc:postgresql://postgres:5432/alfresco -Ddb.pool.max=275 -Dsolr.host=solr6 -Dsolr.port=8983 -Dsolr.http.connection.timeout=1000 -Dsolr.secureComms=secret -Dsolr.sharedSecret=secret -Dsolr.base.url=/solr -Dindex.subsystem.name=solr6 -Dshare.host=127.0.0.1 -Dshare.port=8080 -Dalfresco.host=localhost -Dalfresco.port=8080 -Dapi-explorer.url=http://localhost:8080/api-explorer -Daos.baseUrlOverwrite=http://localhost:8080/alfresco/aos -Ddeployment.method=DOCKER_COMPOSE -DlocalTransform.core-aio.url=http://transform-core-aio:8090/ -Dcsrf.filter.enabled=false -Dalfresco.restApi.basicAuthScheme=true -Xms1500m -Xmx1500m"
     volumes:
       - alf_data:/usr/local/tomcat/alf_data
       - ./config:/usr/local/tomcat/shared/classes/alfresco/extension
@@ -198,19 +165,19 @@ services:
       SYNC_INTERVAL_MINUTES: 5
 
   # Alfresco Digital Workspace (Optional modern UI)
-  digital-workspace:
-    image: quay.io/alfresco/alfresco-digital-workspace:4.4.1
-    container_name: alfresco-adw
-    restart: unless-stopped
-    depends_on:
-      - alfresco
-    ports:
-      - "8082:8080"
-    environment:
-      APP_CONFIG_OAUTH2_HOST: http://localhost:8080/alfresco
-      APP_CONFIG_AUTH_TYPE: BASIC
-      APP_CONFIG_PROVIDER: ECM
-      BASE_PATH: ./
+  # digital-workspace:
+  #   image: quay.io/alfresco/alfresco-digital-workspace:4.4.1
+  #   container_name: alfresco-adw
+  #   restart: unless-stopped
+  #   depends_on:
+  #     - alfresco
+  #   ports:
+  #     - "8082:8080"
+  #   environment:
+  #     APP_CONFIG_OAUTH2_HOST: http://localhost:8080/alfresco
+  #     APP_CONFIG_AUTH_TYPE: BASIC
+  #     APP_CONFIG_PROVIDER: ECM
+  #     BASE_PATH: ./
 
 volumes:
   postgres_data:
