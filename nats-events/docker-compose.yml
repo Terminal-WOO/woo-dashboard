@@ -6,18 +6,17 @@ services:
     container_name: nats-jetstream
     restart: unless-stopped
     ports:
-      - "4222:4222"  # Client connections
-      - "8222:8222"  # HTTP monitoring
-      - "6222:6222"  # Cluster routing
-    command: >
-      -js
-      -sd /data
-      -m 8222
-      --name nats-dms
-      --http_port 8222
-      --store_dir /data
-      --max_payload 10MB
-      --max_pending 100MB
+      - "4222:4222" # Client connections
+      - "8222:8222" # HTTP monitoring
+      - "6222:6222" # Cluster routing
+    command:
+      - "-js"
+      - "-sd"
+      - "/data"
+      - "-m"
+      - "8222"
+      - "--name"
+      - "nats-dms"
     volumes:
       - nats_data:/data
     networks:
@@ -36,7 +35,7 @@ services:
       STREAM_NAME: DOCUMENT_EVENTS
       LOG_LEVEL: info
     ports:
-      - "3002:3000"  # HTTP API voor event queries
+      - "3002:3000" # HTTP API voor event queries
     networks:
       - dms-network
 
