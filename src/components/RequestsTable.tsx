@@ -1,4 +1,5 @@
 import { WOORequest } from "../types";
+import { OrganizationLogo } from "./OrganizationLogo";
 
 interface RequestsTableProps {
   requests: WOORequest[];
@@ -34,19 +35,6 @@ export const RequestsTable = ({ requests }: RequestsTableProps) => {
     });
   };
 
-  const getOrgTypeIcon = (type: string) => {
-    switch (type) {
-      case "gemeente":
-        return "🏛️";
-      case "provincie":
-        return "🗺️";
-      case "ministerie":
-        return "🏢";
-      default:
-        return "📋";
-    }
-  };
-
   return (
     <div className="table-container">
       <table className="requests-table">
@@ -71,10 +59,10 @@ export const RequestsTable = ({ requests }: RequestsTableProps) => {
                 {request.title}
               </td>
               <td>
-                <span style={{ marginRight: "4px" }}>
-                  {getOrgTypeIcon(request.organizationType)}
-                </span>
-                {request.organization}
+                <div className="org-cell">
+                  <OrganizationLogo organization={request.organization} />
+                  <span>{request.organization}</span>
+                </div>
               </td>
               <td>{request.category}</td>
               <td>

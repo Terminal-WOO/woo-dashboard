@@ -1,76 +1,25 @@
-import { useState, useEffect } from "react";
-import { WOOStatus } from "../types";
-import { erlangSystem, Message } from "../erlangActorSystem";
+import { WOOStatus, WOORequest } from "../types";
+import { OrganizationLogo } from "./OrganizationLogo";
 
-interface ActivityEvent {
-  id: string;
-  timestamp: Date;
-  requestTitle: string;
-  organization: string;
-  previousStatus: WOOStatus | null;
-  newStatus: WOOStatus;
+interface ActivityFeedProps {
+  requests: WOORequest[];
 }
 
-export const ActivityFeed = () => {
-  const [events, setEvents] = useState<ActivityEvent[]>([]);
+export const ActivityFeed = ({ requests }: ActivityFeedProps) => {
+  // Show the 10 most recently modified documents
+  const recentChanges = [...requests]
+    .sort(
+      (a, b) =>
+        new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime(),
+    )
+    .slice(0, 10);
 
-  useEffect(() => {
-    // Load initial events from Erlang event manager history
-    const history = erlangSystem.getEventManager().getHistory();
-    const initialEvents = history
-      .filter(
-        (msg) => msg.type === "status_change" || msg.type === "new_document",
-      )
-      .slice(-10)
-      .reverse()
-      .map(convertMessageToEvent);
-    setEvents(initialEvents);
-
-    // Create subscriber actor for live events
-    const subscriber = erlangSystem.spawn((message: Message, state: any) => {
-      if (message.type === "status_change") {
-        const event = convertMessageToEvent(message);
-        setEvents((prevEvents) => [event, ...prevEvents].slice(0, 10));
-      } else if (message.type === "new_document") {
-        const event = convertMessageToEvent(message);
-        setEvents((prevEvents) => [event, ...prevEvents].slice(0, 10));
-      }
-      return state;
-    });
-
-    // Register as event handler
-    erlangSystem.getEventManager().addHandler(subscriber);
-
-    return () => {
-      // Cleanup: remove handler on unmount
-      erlangSystem.getEventManager().removeHandler(subscriber);
-      subscriber.send({ type: "shutdown" });
-    };
-  }, []);
-
-  const convertMessageToEvent = (message: Message): ActivityEvent => {
-    if (message.type === "status_change") {
-      return {
-        id: `${message.data.documentId}-${message.data.timestamp}`,
-        timestamp: new Date(message.data.timestamp),
-        requestTitle: message.data.title,
-        organization: message.data.organization,
-        previousStatus: message.data.oldStatus as WOOStatus,
-        newStatus: message.data.newStatus as WOOStatus,
-      };
-    } else if (message.type === "new_document") {
-      return {
-        id: `${message.data.id}-${message.data.timestamp}`,
-        timestamp: new Date(message.data.timestamp),
-        requestTitle: message.data.title,
-        organization: message.data.organization,
-        previousStatus: null,
-        newStatus: message.data.status as WOOStatus,
-      };
-    }
-    throw new Error("Invalid message type");
-  };
-
+  console.log("[ActivityFeed] Total requests:", requests.length);
+  console.log("[ActivityFeed] Recent changes:", recentChanges.length);
+  console.log(
+    "[ActivityFeed] With previousStatus:",
+    recentChanges.filter((r) => r.previousStatus).length,
+  );
   const getStatusColor = (status: WOOStatus): string => {
     switch (status) {
       case "Ontvangen":
@@ -113,16 +62,16 @@ export const ActivityFeed = () => {
     }
   };
 
-  const formatTime = (date: Date): string => {
+  const formatTime = (dateString: string): string => {
+    const date = new Date(dateString);
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
     const diffSecs = Math.floor(diffMs / 1000);
     const diffMins = Math.floor(diffSecs / 60);
-    const diffHours = Math.floor(diffMins / 60);
 
-    if (diffSecs < 60) return "Zojuist";
-    if (diffMins < 60) return `${diffMins} min geleden`;
-    if (diffHours < 24) return `${diffHours} uur geleden`;
+    if (diffSecs < 10) return "Zojuist";
+    if (diffSecs < 60) return `${diffSecs}s geleden`;
+    if (diffMins < 60) return `${diffMins}m geleden`;
 
     return date.toLocaleDateString("nl-NL", {
       day: "numeric",
@@ -132,10 +81,10 @@ export const ActivityFeed = () => {
     });
   };
 
-  if (events.length === 0) {
+  if (recentChanges.length === 0) {
     return (
       <div className="activity-feed">
-        <h2>Recente Activiteit (Erlang Actor System)</h2>
+        <h2>Recente Activiteit</h2>
         <div className="no-events">
           <p>Geen recente activiteit</p>
           <p style={{ fontSize: "0.8em", color: "#6b7280", marginTop: "8px" }}>
@@ -148,48 +97,60 @@ export const ActivityFeed = () => {
 
   return (
     <div className="activity-feed">
-      <h2>Recente Activiteit (Erlang Actor System)</h2>
+      <h2>Recente Activiteit</h2>
       <div className="events-list">
-        {events.map((event) => (
-          <div key={event.id} className="event-item">
+        {recentChanges.map((request) => (
+          <div
+            key={`${request.id}-${request.lastModified}`}
+            className="event-item"
+          >
             <div
               className="event-icon"
               style={{
-                backgroundColor: `${getStatusColor(event.newStatus)}20`,
+                backgroundColor: `${getStatusColor(request.status)}20`,
               }}
             >
-              <span>{getStatusIcon(event.newStatus)}</span>
+              <span>{getStatusIcon(request.status)}</span>
             </div>
             <div className="event-content">
               <div className="event-header">
-                <span className="event-title">{event.requestTitle}</span>
+                <span className="event-title">{request.title}</span>
                 <span className="event-time">
-                  {formatTime(event.timestamp)}
+                  {formatTime(request.lastModified)}
                 </span>
               </div>
               <div className="event-details">
-                <span className="event-org">{event.organization}</span>
-                {event.previousStatus && (
+                <span className="event-org">
+                  <OrganizationLogo
+                    organization={request.organization}
+                    size={20}
+                    className="org-logo-inline"
+                  />
+                  {request.organization}
+                </span>
+                {request.previousStatus && (
                   <>
                     <span className="event-separator">•</span>
                     <span className="status-change">
                       <span
-                        style={{ color: getStatusColor(event.previousStatus) }}
+                        style={{
+                          color: getStatusColor(request.previousStatus),
+                        }}
                       >
-                        {event.previousStatus}
+                        {request.previousStatus}
                       </span>
-                      <span className="arrow">→</span>
-                      <span style={{ color: getStatusColor(event.newStatus) }}>
-                        {event.newStatus}
+                      <span className="arrow"> → </span>
+                      <span style={{ color: getStatusColor(request.status) }}>
+                        {request.status}
                       </span>
                     </span>
                   </>
                 )}
-                {!event.previousStatus && (
+                {!request.previousStatus && (
                   <>
                     <span className="event-separator">•</span>
-                    <span style={{ color: getStatusColor(event.newStatus) }}>
-                      Nieuw: {event.newStatus}
+                    <span style={{ color: getStatusColor(request.status) }}>
+                      Status: {request.status}
                     </span>
                   </>
                 )}

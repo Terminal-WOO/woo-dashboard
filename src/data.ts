@@ -123,7 +123,9 @@ export const getOrganizationStats = (
   });
 
   const orgColors: Record<string, string> = {
-    "Gemeente Utrecht": "#E30613",
+    "Ministerie van Justitie en Veiligheid": "#003082",
+    "Ministerie van Financiën": "#21406B",
+    "Provincie Zuid-Holland": "#00A651",
     "Provincie Flevoland": "#00A0E1",
   };
 

@@ -1,4 +1,4 @@
-import { WOORequest, WOOStatistics } from "./types";
+import { WOORequest, WOOStats, WOOStatus, OrganizationType } from "./types";
 import { BackendService } from "./backendService";
 
 const API_BASE = "http://localhost:8081/api";
@@ -8,11 +8,15 @@ interface PostgresDocument {
   title: string;
   subject: string;
   organization: string;
+  organization_type: string;
+  category: string;
   status: string;
-  priority: string;
   metadata: Record<string, any>;
   created_at: string;
   updated_at: string;
+  decided_date?: string;
+  requester?: string;
+  handler?: string;
 }
 
 export class PostgresBackendService implements BackendService {
@@ -22,11 +26,15 @@ export class PostgresBackendService implements BackendService {
       title: doc.title,
       subject: doc.subject,
       organization: doc.organization,
-      status: doc.status as WOORequest["status"],
-      priority: doc.priority as WOORequest["priority"],
+      organizationType: (doc.organization_type ||
+        "gemeente") as OrganizationType,
+      category: doc.category || "Algemeen",
+      status: doc.status as WOOStatus,
       submittedDate: doc.created_at,
       lastModified: doc.updated_at,
-      metadata: doc.metadata,
+      decidedDate: doc.decided_date,
+      requester: doc.requester,
+      handler: doc.handler,
     };
   }
 
@@ -43,27 +51,53 @@ export class PostgresBackendService implements BackendService {
       const data = await response.json();
       return this.mapDocuments(data.documents || []);
     } catch (error) {
-      console.error("Failed to fetch documents from PostgreSQL backend:", error);
+      console.error(
+        "Failed to fetch documents from PostgreSQL backend:",
+        error,
+      );
       return [];
     }
   }
 
-  async getById(id: string): Promise<WOORequest | undefined> {
+  async getById(id: string): Promise<WOORequest | null> {
     try {
       const response = await fetch(`${API_BASE}/documents/${id}`);
       if (!response.ok) {
-        if (response.status === 404) return undefined;
+        if (response.status === 404) return null;
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       const data = await response.json();
-      return data.document ? this.mapDocument(data.document) : undefined;
+      return data.document ? this.mapDocument(data.document) : null;
     } catch (error) {
       console.error(`Failed to fetch document ${id}:`, error);
-      return undefined;
+      return null;
     }
   }
 
-  async update(id: string, status: WOORequest["status"]): Promise<void> {
+  async getByOrganization(org: string): Promise<WOORequest[]> {
+    try {
+      const allDocs = await this.getAll();
+      return allDocs.filter((doc) => doc.organization === org);
+    } catch (error) {
+      console.error(
+        `Failed to fetch documents for organization ${org}:`,
+        error,
+      );
+      return [];
+    }
+  }
+
+  async getByStatus(status: WOOStatus): Promise<WOORequest[]> {
+    try {
+      const allDocs = await this.getAll();
+      return allDocs.filter((doc) => doc.status === status);
+    } catch (error) {
+      console.error(`Failed to fetch documents with status ${status}:`, error);
+      return [];
+    }
+  }
+
+  async update(id: string, status: WOOStatus): Promise<void> {
     try {
       const response = await fetch(`${API_BASE}/documents/${id}/status`, {
         method: "PUT",
@@ -81,40 +115,47 @@ export class PostgresBackendService implements BackendService {
     }
   }
 
-  async getStatistics(): Promise<WOOStatistics> {
+  async getStatistics(): Promise<WOOStats> {
     try {
-      const response = await fetch(`${API_BASE}/statistics`);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      const data = await response.json();
-      const stats = data.statistics || [];
-
-      // Map PostgreSQL statistics to WOOStatistics format
-      const statusCounts: Record<string, number> = {};
-      stats.forEach((stat: any) => {
-        statusCounts[stat.status] = parseInt(stat.count);
-      });
+      const allDocs = await this.getAll();
+      const received = allDocs.filter(
+        (doc) => doc.status === "Ontvangen",
+      ).length;
+      const inProgress = allDocs.filter(
+        (doc) =>
+          doc.status === "In behandeling" ||
+          doc.status === "1e Concept" ||
+          doc.status === "2e Concept" ||
+          doc.status === "Definitief",
+      ).length;
+      const completed = allDocs.filter(
+        (doc) => doc.status === "Gepubliceerd" || doc.status === "Afgerond",
+      ).length;
 
       return {
-        totalRequests: stats.reduce((sum: number, s: any) => sum + parseInt(s.count), 0),
-        byStatus: statusCounts,
-        averageProcessingTime: stats.reduce((sum: number, s: any) =>
-          sum + (parseFloat(s.avg_days_in_status) || 0), 0) / (stats.length || 1),
+        totalRequests: allDocs.length,
+        received,
+        inProgress,
+        completed,
+        averageHandlingDays: 0,
       };
     } catch (error) {
       console.error("Failed to fetch statistics:", error);
       return {
         totalRequests: 0,
-        byStatus: {},
-        averageProcessingTime: 0,
+        received: 0,
+        inProgress: 0,
+        completed: 0,
+        averageHandlingDays: 0,
       };
     }
   }
 
   async search(query: string): Promise<WOORequest[]> {
     try {
-      const response = await fetch(`${API_BASE}/search?q=${encodeURIComponent(query)}`);
+      const response = await fetch(
+        `${API_BASE}/search?q=${encodeURIComponent(query)}`,
+      );
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }

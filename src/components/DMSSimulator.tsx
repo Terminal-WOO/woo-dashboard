@@ -1,5 +1,12 @@
-import { useState, useEffect } from 'react';
-import { FileText, Upload, CheckCircle, XCircle, Loader2, Play, Database } from 'lucide-react';
+import { useState, useEffect } from "react";
+import {
+  FileText,
+  CheckCircle,
+  XCircle,
+  Loader2,
+  Play,
+  Database,
+} from "lucide-react";
 
 interface SimulationDocument {
   id: string;
@@ -12,7 +19,7 @@ interface SimulationStatus {
   total: number;
   completed: number;
   failed: number;
-  status: 'running' | 'completed' | 'failed';
+  status: "running" | "completed" | "failed";
   progress: number;
   startTime: string;
   documents: SimulationDocument[];
@@ -25,14 +32,19 @@ interface ConnectionStatus {
 
 export function DMSSimulator() {
   const [count, setCount] = useState(5);
-  const [systems, setSystems] = useState<Array<'paperless' | 'alfresco'>>(['paperless']);
+  const [systems, setSystems] = useState<Array<"paperless" | "alfresco">>([
+    "paperless",
+  ]);
   const [isSimulating, setIsSimulating] = useState(false);
   const [simulationId, setSimulationId] = useState<string | null>(null);
   const [status, setStatus] = useState<SimulationStatus | null>(null);
-  const [connections, setConnections] = useState<ConnectionStatus>({ paperless: false, alfresco: false });
+  const [connections, setConnections] = useState<ConnectionStatus>({
+    paperless: false,
+    alfresco: false,
+  });
   const [isCheckingConnections, setIsCheckingConnections] = useState(false);
 
-  const SIMULATOR_URL = 'http://localhost:3001';
+  const SIMULATOR_URL = "http://localhost:3001";
 
   // Check connections on mount
   useEffect(() => {
@@ -45,16 +57,18 @@ export function DMSSimulator() {
 
     const interval = setInterval(async () => {
       try {
-        const response = await fetch(`${SIMULATOR_URL}/simulate/${simulationId}`);
+        const response = await fetch(
+          `${SIMULATOR_URL}/simulate/${simulationId}`,
+        );
         const data = await response.json();
         setStatus(data);
 
-        if (data.status === 'completed' || data.status === 'failed') {
+        if (data.status === "completed" || data.status === "failed") {
           setIsSimulating(false);
           clearInterval(interval);
         }
       } catch (error) {
-        console.error('Failed to fetch simulation status:', error);
+        console.error("Failed to fetch simulation status:", error);
       }
     }, 1000);
 
@@ -68,7 +82,7 @@ export function DMSSimulator() {
       const data = await response.json();
       setConnections(data);
     } catch (error) {
-      console.error('Failed to check connections:', error);
+      console.error("Failed to check connections:", error);
     } finally {
       setIsCheckingConnections(false);
     }
@@ -76,7 +90,7 @@ export function DMSSimulator() {
 
   const startSimulation = async () => {
     if (systems.length === 0) {
-      alert('Selecteer minimaal één DMS systeem');
+      alert("Selecteer minimaal één DMS systeem");
       return;
     }
 
@@ -86,23 +100,25 @@ export function DMSSimulator() {
 
     try {
       const response = await fetch(`${SIMULATOR_URL}/simulate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ count, systems }),
       });
 
       const data = await response.json();
       setSimulationId(data.simulationId);
     } catch (error) {
-      console.error('Failed to start simulation:', error);
+      console.error("Failed to start simulation:", error);
       setIsSimulating(false);
-      alert('Fout bij starten simulatie. Zorg dat de DMS Simulator draait op port 3001');
+      alert(
+        "Fout bij starten simulatie. Zorg dat de DMS Simulator draait op port 3001",
+      );
     }
   };
 
-  const toggleSystem = (system: 'paperless' | 'alfresco') => {
+  const toggleSystem = (system: "paperless" | "alfresco") => {
     if (systems.includes(system)) {
-      setSystems(systems.filter(s => s !== system));
+      setSystems(systems.filter((s) => s !== system));
     } else {
       setSystems([...systems, system]);
     }
@@ -122,14 +138,20 @@ export function DMSSimulator() {
           disabled={isCheckingConnections}
           className="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 rounded flex items-center gap-2"
         >
-          {isCheckingConnections ? <Loader2 className="w-4 h-4 animate-spin" /> : <Database className="w-4 h-4" />}
+          {isCheckingConnections ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Database className="w-4 h-4" />
+          )}
           Test Verbinding
         </button>
       </div>
 
       {/* Connection Status */}
       <div className="grid grid-cols-2 gap-4 mb-6">
-        <div className={`p-4 rounded-lg border-2 ${connections.paperless ? 'border-green-500 bg-green-50 dark:bg-green-900/20' : 'border-red-500 bg-red-50 dark:bg-red-900/20'}`}>
+        <div
+          className={`p-4 rounded-lg border-2 ${connections.paperless ? "border-green-500 bg-green-50 dark:bg-green-900/20" : "border-red-500 bg-red-50 dark:bg-red-900/20"}`}
+        >
           <div className="flex items-center justify-between">
             <span className="font-medium">Paperless-ngx</span>
             {connections.paperless ? (
@@ -139,11 +161,13 @@ export function DMSSimulator() {
             )}
           </div>
           <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-            {connections.paperless ? 'Verbonden' : 'Niet bereikbaar'}
+            {connections.paperless ? "Verbonden" : "Niet bereikbaar"}
           </p>
         </div>
 
-        <div className={`p-4 rounded-lg border-2 ${connections.alfresco ? 'border-green-500 bg-green-50 dark:bg-green-900/20' : 'border-red-500 bg-red-50 dark:bg-red-900/20'}`}>
+        <div
+          className={`p-4 rounded-lg border-2 ${connections.alfresco ? "border-green-500 bg-green-50 dark:bg-green-900/20" : "border-red-500 bg-red-50 dark:bg-red-900/20"}`}
+        >
           <div className="flex items-center justify-between">
             <span className="font-medium">Alfresco</span>
             {connections.alfresco ? (
@@ -153,7 +177,7 @@ export function DMSSimulator() {
             )}
           </div>
           <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-            {connections.alfresco ? 'Verbonden' : 'Niet bereikbaar'}
+            {connections.alfresco ? "Verbonden" : "Niet bereikbaar"}
           </p>
         </div>
       </div>
@@ -188,24 +212,24 @@ export function DMSSimulator() {
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
-                checked={systems.includes('paperless')}
-                onChange={() => toggleSystem('paperless')}
+                checked={systems.includes("paperless")}
+                onChange={() => toggleSystem("paperless")}
                 disabled={isSimulating || !connections.paperless}
                 className="w-4 h-4"
               />
-              <span className={!connections.paperless ? 'text-gray-400' : ''}>
+              <span className={!connections.paperless ? "text-gray-400" : ""}>
                 Paperless-ngx
               </span>
             </label>
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
-                checked={systems.includes('alfresco')}
-                onChange={() => toggleSystem('alfresco')}
+                checked={systems.includes("alfresco")}
+                onChange={() => toggleSystem("alfresco")}
                 disabled={isSimulating || !connections.alfresco}
                 className="w-4 h-4"
               />
-              <span className={!connections.alfresco ? 'text-gray-400' : ''}>
+              <span className={!connections.alfresco ? "text-gray-400" : ""}>
                 Alfresco
               </span>
             </label>
@@ -264,16 +288,20 @@ export function DMSSimulator() {
                   key={`${doc.id}-${index}`}
                   className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-700/50 rounded text-sm"
                 >
-                  {doc.status === 'success' ? (
+                  {doc.status === "success" ? (
                     <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
                   ) : (
                     <XCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
                   )}
                   <FileText className="w-4 h-4 text-gray-400 flex-shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="truncate text-gray-900 dark:text-white">{doc.title}</p>
+                    <p className="truncate text-gray-900 dark:text-white">
+                      {doc.title}
+                    </p>
                     <p className="text-xs text-gray-500">
-                      {doc.system === 'paperless' ? 'Paperless-ngx' : 'Alfresco'}
+                      {doc.system === "paperless"
+                        ? "Paperless-ngx"
+                        : "Alfresco"}
                     </p>
                   </div>
                 </div>
@@ -281,7 +309,7 @@ export function DMSSimulator() {
             </div>
           )}
 
-          {status.status === 'completed' && (
+          {status.status === "completed" && (
             <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
               <p className="text-green-800 dark:text-green-200 font-medium">
                 ✓ Simulatie voltooid!
@@ -301,11 +329,19 @@ export function DMSSimulator() {
           💡 Hoe te gebruiken:
         </h4>
         <ol className="text-sm text-blue-800 dark:text-blue-300 space-y-1 list-decimal list-inside">
-          <li>Start de DMS Simulator: <code className="bg-blue-100 dark:bg-blue-900 px-1 rounded">cd dms-simulator && npm run dev</code></li>
+          <li>
+            Start de DMS Simulator:{" "}
+            <code className="bg-blue-100 dark:bg-blue-900 px-1 rounded">
+              cd dms-simulator && npm run dev
+            </code>
+          </li>
           <li>Zorg dat Paperless en/of Alfresco draaien</li>
           <li>Kies aantal documenten en systemen</li>
           <li>Klik "Start Simulatie"</li>
-          <li>Bekijk de documenten in Paperless (port 8000) of Alfresco (port 8081)</li>
+          <li>
+            Bekijk de documenten in Paperless (port 8000) of Alfresco (port
+            8081)
+          </li>
         </ol>
       </div>
     </div>

@@ -1,7 +1,7 @@
 /**
  * Backend Switcher Component
  *
- * Allows users to toggle between Mock, Erlang, and PostgreSQL backend implementations
+ * Allows users to toggle between Mock and PostgreSQL backend implementations
  */
 
 import { useState, useEffect } from "react";
@@ -15,7 +15,6 @@ export const BackendSwitcher = ({ onBackendChange }: BackendSwitcherProps) => {
   const [currentBackend, setCurrentBackend] = useState<BackendType>(
     backendService.getBackendType(),
   );
-  const [erlangAvailable, setErlangAvailable] = useState<boolean | null>(null);
   const [postgresAvailable, setPostgresAvailable] = useState<boolean | null>(
     null,
   );
@@ -27,25 +26,12 @@ export const BackendSwitcher = ({ onBackendChange }: BackendSwitcherProps) => {
 
   const checkBackends = async () => {
     setIsChecking(true);
-    const [erlang, postgres] = await Promise.all([
-      backendService.checkErlangBackendAvailable(),
-      backendService.checkPostgresBackendAvailable(),
-    ]);
-    setErlangAvailable(erlang);
+    const postgres = await backendService.checkPostgresBackendAvailable();
     setPostgresAvailable(postgres);
     setIsChecking(false);
   };
 
   const handleSwitch = (type: BackendType) => {
-    if (type === "erlang" && !erlangAvailable) {
-      alert(
-        "Erlang backend is niet beschikbaar!\n\n" +
-          "Start de backend met:\n" +
-          "cd erlang-backend && rebar3 shell",
-      );
-      return;
-    }
-
     if (type === "postgres" && !postgresAvailable) {
       alert(
         "PostgreSQL backend is niet beschikbaar!\n\n" +
@@ -87,19 +73,6 @@ export const BackendSwitcher = ({ onBackendChange }: BackendSwitcherProps) => {
         >
           <span className="backend-icon">💾</span>
           Mock
-        </button>
-        <button
-          className={`backend-button ${currentBackend === "erlang" ? "active" : ""}`}
-          onClick={() => handleSwitch("erlang")}
-          disabled={!erlangAvailable && currentBackend !== "erlang"}
-        >
-          <span className="backend-icon">⚡</span>
-          Erlang
-          <span
-            className="backend-status-indicator"
-            style={{ backgroundColor: getStatusColor(erlangAvailable) }}
-            title={`Erlang Backend: ${getStatusText(erlangAvailable)}`}
-          />
         </button>
         <button
           className={`backend-button ${currentBackend === "postgres" ? "active" : ""}`}

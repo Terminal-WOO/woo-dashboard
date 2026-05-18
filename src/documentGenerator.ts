@@ -46,9 +46,10 @@ const prefixes = [
   "Subsidieaanvragen voor",
 ];
 
-// Updated for Utrecht and Flevoland
 const organizations: Array<{ name: string; type: OrganizationType }> = [
-  { name: "Gemeente Utrecht", type: "gemeente" },
+  { name: "Ministerie van Justitie en Veiligheid", type: "ministerie" },
+  { name: "Ministerie van Financiën", type: "ministerie" },
+  { name: "Provincie Zuid-Holland", type: "provincie" },
   { name: "Provincie Flevoland", type: "provincie" },
 ];
 

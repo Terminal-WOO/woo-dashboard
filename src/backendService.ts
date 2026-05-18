@@ -9,13 +9,23 @@
  */
 
 import { mockDatabaseService } from "./mockDatabase";
-import { erlangBackendService } from "./erlangBackendService";
 import { postgresBackendService } from "./postgresBackendService";
 import { WOORequest, WOOStats, WOOStatus } from "./types";
 
 // Adapter for mockDatabaseService to match BackendService interface
 class MockBackendAdapter implements BackendService {
+  private simulationInterval: NodeJS.Timeout | null = null;
+  private statusFlow: WOOStatus[] = [
+    "Ontvangen",
+    "In behandeling",
+    "1e Concept",
+    "2e Concept",
+    "Definitief",
+    "Gepubliceerd",
+  ];
+
   async getAll(): Promise<WOORequest[]> {
+    await mockDatabaseService.init();
     return mockDatabaseService.queryAll();
   }
 
@@ -60,11 +70,50 @@ class MockBackendAdapter implements BackendService {
       averageHandlingDays: 0,
     };
   }
+
+  async startSimulation(): Promise<void> {
+    if (this.simulationInterval) {
+      console.log("[MockBackend] Simulation already running");
+      return;
+    }
+
+    console.log("[MockBackend] Starting simulation");
+
+    this.simulationInterval = setInterval(() => {
+      const allRequests = mockDatabaseService.queryAll();
+
+      // Pick a random request to advance
+      const randomIndex = Math.floor(Math.random() * allRequests.length);
+      const request = allRequests[randomIndex];
+
+      // Get current status index
+      const currentStatusIndex = this.statusFlow.indexOf(request.status);
+
+      // Move to next status (or loop back to first)
+      const nextStatusIndex = (currentStatusIndex + 1) % this.statusFlow.length;
+      const nextStatus = this.statusFlow[nextStatusIndex];
+
+      // Update the status
+      mockDatabaseService.update(request.id, nextStatus);
+
+      console.log(
+        `[MockBackend] ${request.title}: ${request.status} → ${nextStatus}`,
+      );
+    }, 2000); // Update every 2 seconds
+  }
+
+  async stopSimulation(): Promise<void> {
+    if (this.simulationInterval) {
+      clearInterval(this.simulationInterval);
+      this.simulationInterval = null;
+      console.log("[MockBackend] Simulation stopped");
+    }
+  }
 }
 
 const mockBackendAdapter = new MockBackendAdapter();
 
-export type BackendType = "mock" | "erlang" | "postgres";
+export type BackendType = "mock" | "postgres";
 
 export interface BackendService {
   getAll(): Promise<WOORequest[]>;
@@ -119,19 +168,6 @@ class BackendServiceManager {
   }
 
   /**
-   * Check if Erlang backend is available
-   */
-  async checkErlangBackendAvailable(): Promise<boolean> {
-    try {
-      await erlangBackendService.healthCheck();
-      return true;
-    } catch (error) {
-      console.warn("[BackendService] Erlang backend not available:", error);
-      return false;
-    }
-  }
-
-  /**
    * Check if PostgreSQL backend is available
    */
   async checkPostgresBackendAvailable(): Promise<boolean> {
@@ -148,8 +184,6 @@ class BackendServiceManager {
    */
   private getBackendImplementation(type: BackendType): BackendService {
     switch (type) {
-      case "erlang":
-        return erlangBackendService;
       case "postgres":
         return postgresBackendService;
       case "mock":

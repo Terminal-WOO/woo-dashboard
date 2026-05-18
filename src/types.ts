@@ -14,6 +14,7 @@ export interface WOORequest {
   id: string;
   title: string;
   status: WOOStatus;
+  previousStatus?: WOOStatus;
   submittedDate: string;
   decidedDate?: string;
   organization: string;

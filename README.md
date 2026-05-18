@@ -8,6 +8,26 @@ Het dashboard is live beschikbaar op: **https://terminal-woo.github.io/woo-dashb
 
 > **Note**: GitHub Pages gebruikt CDN caching. Het kan 10-60 minuten duren voordat updates zichtbaar zijn. Voor directe updates: gebruik incognito mode of hard refresh (Ctrl+Shift+R).
 
+### Development vs Production Features
+
+De applicatie heeft verschillende features beschikbaar afhankelijk van de omgeving:
+
+**Production (GitHub Pages)**:
+- ✅ WOO Dashboard met alle statistieken en visualisaties
+- ✅ Mock backend met 24 pre-loaded documenten
+- ✅ Simulatie modus voor status doorloop
+- ✅ Real-time event feed
+- ✅ Backend switcher UI (mock/erlang/postgres)
+
+**Development Only (localhost)**:
+- 🔧 DMS Simulator - Upload test documenten naar Paperless/LogicalDOC
+- 🔧 Event Stream Viewer - Real-time NATS event monitoring
+- 🔧 Erlang Backend - Vereist lokale Erlang/OTP server
+- 🔧 PostgreSQL Backend - Vereist lokale PostgreSQL database
+- 🔧 NATS JetStream - Vereist lokale NATS server
+
+> **Tip**: Om alle features te gebruiken, run het project lokaal met `npm run dev` en start de backend services met `./start-all.sh`
+
 ## Overzicht
 
 WOO Dashboard is een modern React-based dashboard dat statistieken en status updates van WOO-verzoeken visualiseert. Het systeem combineert **drie backend opties** met **volledige Document Management Systems** en **event streaming**:
@@ -30,7 +50,7 @@ WOO Dashboard is een modern React-based dashboard dat statistieken en status upd
 ### Belangrijkste Functies
 
 #### WOO Dashboard Core:
-- **🔄 Triple Backend Architecture**: Switch tussen mock, Erlang en PostgreSQL backend via UI
+- **🔄 Dual Backend Architecture**: Switch tussen mock en PostgreSQL backend via UI
 - **⚡ Erlang/OTP Backend**: Volledige OTP applicatie met gen_server, gen_event, supervisor tree
 - **💾 Mock Database**: Pure JavaScript in-memory database met 24 realistische documenten
 - **🎭 Erlang Actor System**: Fault-tolerant event handling met supervisors en message passing

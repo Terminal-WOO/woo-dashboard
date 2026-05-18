@@ -24,13 +24,29 @@ import {
   getDetailedStatusDistribution,
 } from "./data";
 import { WOORequest } from "./types";
-import { erlangSimulatorV2 } from "./erlangSimulatorV2";
+import { backendService } from "./backendService";
 import "./App.css";
 
 function App() {
   const [requests, setRequests] = useState<WOORequest[]>([]);
   const [isSimulating, setIsSimulating] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
+
+  const startSimulationPolling = () => {
+    const interval = setInterval(async () => {
+      const updatedRequests = await backendService.getAll();
+      setRequests(updatedRequests);
+    }, 2000);
+    (window as any).__simulationInterval = interval;
+  };
+
+  const stopSimulationPolling = () => {
+    if ((window as any).__simulationInterval) {
+      clearInterval((window as any).__simulationInterval);
+      (window as any).__simulationInterval = null;
+    }
+  };
+
   const stats = calculateStats(requests);
   const monthlyData = getMonthlyData();
   const statusDistribution = getDetailedStatusDistribution(requests);
@@ -39,14 +55,9 @@ function App() {
   useEffect(() => {
     const initDatabase = async () => {
       try {
-        await erlangSimulatorV2.initialize();
-        const initialData = await erlangSimulatorV2.getStatistics();
-        console.log("[App] Database initialized:", initialData);
-
-        // Load initial documents to show in stats
-        const initialRequests = await erlangSimulatorV2.getDocuments();
+        // Load initial documents from backend
+        const initialRequests = await backendService.getAll();
         setRequests(initialRequests);
-
         setIsInitializing(false);
       } catch (error) {
         console.error("[App] Failed to initialize database:", error);
@@ -55,37 +66,49 @@ function App() {
     };
 
     console.log(
-      "%c🎉 WOO Dashboard v2.0 - SQLite Edition",
+      "%c🎉 WOO Dashboard v2.2 - Dual Backend",
       "background: #16a34a; color: white; padding: 8px; font-size: 16px; font-weight: bold;",
     );
     console.log(
-      "%cGemeente Utrecht & Provincie Flevoland",
+      "%cJenV, Financiën, Zuid-Holland & Flevoland",
       "color: #107abe; font-size: 14px;",
     );
     console.log(
-      "%cErlang Actor System + SQLite Database",
+      "%cMock Database + PostgreSQL Backend",
       "color: #9333ea; font-size: 12px;",
     );
 
-    initDatabase();
-
-    return () => {
-      erlangSimulatorV2.stop();
+    const runInit = async () => {
+      await initDatabase();
+      if (backendService.getBackendType() === "mock") {
+        await backendService.startSimulation();
+        setIsSimulating(true);
+        startSimulationPolling();
+      }
     };
+
+    runInit();
   }, []);
 
   const handleToggleSimulation = async () => {
     if (isSimulating) {
-      erlangSimulatorV2.stop();
+      await backendService.stopSimulation();
+      stopSimulationPolling();
       setIsSimulating(false);
     } else {
-      // Start simulation with 2 second intervals for smoother progression
-      await erlangSimulatorV2.start((updatedRequests) => {
-        setRequests([...updatedRequests]);
-      }, 2000);
+      await backendService.startSimulation();
       setIsSimulating(true);
+      startSimulationPolling();
     }
   };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      stopSimulationPolling();
+      backendService.stopSimulation();
+    };
+  }, []);
 
   if (isInitializing) {
     return (
@@ -94,7 +117,7 @@ function App() {
           <div className="loading-spinner"></div>
           <p>Database wordt geïnitialiseerd...</p>
           <p style={{ fontSize: "0.85rem", color: "#6b7280" }}>
-            Gemeente Utrecht & Provincie Flevoland data laden
+            Woo-documenten laden (open.overheid.nl)
           </p>
         </div>
       </div>
@@ -107,24 +130,9 @@ function App() {
         <div className="container">
           <div className="header-content">
             <div>
-              <h1>
-                WOO Dashboard - Utrecht & Flevoland
-                <span
-                  style={{
-                    marginLeft: "12px",
-                    fontSize: "0.5em",
-                    padding: "4px 8px",
-                    backgroundColor: "#16a34a",
-                    color: "white",
-                    borderRadius: "4px",
-                    fontWeight: "normal",
-                  }}
-                >
-                  v2.2 Triple-Backend
-                </span>
-              </h1>
+              <h1>Woo Dashboard</h1>
               <p className="subtitle">
-                Wet Open Overheid - Erlang Actor System (Mock & Real Backend)
+                Wet open overheid — documenten via open.overheid.nl
               </p>
             </div>
             <div className="header-actions">
@@ -142,6 +150,17 @@ function App() {
       </header>
 
       <main className="container">
+        {/* Documenten & activiteit */}
+        <section className="main-grid">
+          <div className="activity-section">
+            <ActivityFeed requests={requests} />
+          </div>
+          <div className="table-section">
+            <h2>Recente WOO Verzoeken</h2>
+            <RequestsTable requests={requests} />
+          </div>
+        </section>
+
         {/* Statistieken Cards */}
         <section className="stats-grid">
           <StatsCard
@@ -212,39 +231,30 @@ function App() {
           </div>
         </section>
 
-        {/* DMS Simulator Section */}
-        <section
-          className="dms-simulator-section"
-          style={{ marginBottom: "2rem" }}
-        >
-          <DMSSimulator />
-        </section>
+        {/* DMS Simulator Section - Only available in development mode */}
+        {import.meta.env.DEV && (
+          <section
+            className="dms-simulator-section"
+            style={{ marginBottom: "2rem" }}
+          >
+            <DMSSimulator />
+          </section>
+        )}
 
-
-        {/* Event Stream Section */}
-        <section
-          className="event-stream-section"
-          style={{ marginBottom: "2rem" }}
-        >
-          <EventStreamViewer />
-        </section>
-
-        {/* Activity Feed & Tabel Grid */}
-        <section className="main-grid">
-          <div className="activity-section">
-            <ActivityFeed />
-          </div>
-
-          <div className="table-section">
-            <h2>Recente WOO Verzoeken</h2>
-            <RequestsTable requests={requests} />
-          </div>
-        </section>
+        {/* Event Stream Section - Only available in development mode */}
+        {import.meta.env.DEV && (
+          <section
+            className="event-stream-section"
+            style={{ marginBottom: "2rem" }}
+          >
+            <EventStreamViewer />
+          </section>
+        )}
       </main>
 
       <footer className="footer">
         <div className="container">
-          <p>WOO Dashboard - Wet Open Overheid © 2024</p>
+          <p>Woo Dashboard — Wet open overheid © 2025</p>
         </div>
       </footer>
     </div>
